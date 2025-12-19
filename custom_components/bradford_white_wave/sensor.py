@@ -33,10 +33,6 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator: BradfordWhiteWaveEnergyCoordinator = data.energy_coordinator
     status_coordinator = data.status_coordinator
-
-    # We need to keys from status coordinator to know which devices exist, 
-    # as energy coordinator might be empty initially or populated async.
-    # But usually setup happens after first refresh.
     
     entities = []
     

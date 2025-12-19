@@ -68,40 +68,6 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
         self._attr_name = None # Use device name
 
     @property
-    def current_temperature(self) -> float | None:
-        """Return the current temperature."""
-        # DeviceStatus has no current temp? 
-        # Check models.py in client: setpoint_fahrenheit is setpoint.
-        # Wait, the prompt memory for rules says "Device List... returns a dict... "
-        # but models.py shows:
-        # setpoint_fahrenheit, mode, heat_mode_value, request_id
-        # It does NOT show 'tank_temp' or 'current_temp' in DeviceStatus in models.py 
-        # BUT the client.py 'get_status' returns DeviceStatus.
-        # Let's check models.py again.
-        
-        # models.py shows DeviceStatus has:
-        # mac_address, friendly_name, serial_number, setpoint_fahrenheit, mode, heat_mode_value...
-        # It seems missing 'current_temperature'. 
-        
-        # HOWEVER, the old integration water_heater.py used `tank_temp` from `properties`.
-        # The new client library might be missing it in models.py if I didn't see it correctly. 
-        # Start of conversation shows models.py:
-        # class DeviceStatus(BaseModel):
-        # ... setpoint_fahrenheit, mode, heat_mode_value...
-        
-        # Wait, does the Wave API provide current temp?
-        # The prompt says "cloud polling water heater device... with controllable temperature setpoint...".
-        # It doesn't explicitly guarantee current temp is available, but usually it is.
-        # I suspect `DeviceStatus` might be incomplete or the API doesn't return it in the list view.
-        # But `get_status` calls `ENDPOINT_GET_STATUS`. 
-        # If models.py doesn't have it, I can't access it easily via typed object.
-        # But `DeviceStatus` is a Pydantic model. If the API returns extra fields, Pydantic might ignore them 
-        # unless configured otherwise, or I can check `device.model_dump()` or `__dict__`.
-        
-        # If it's not there, I'll return None for current_temperature.
-        return None
-
-    @property
     def target_temperature(self) -> float | None:
         """Return the temperature we try to reach."""
         if self.device:
@@ -111,12 +77,12 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
     @property
     def min_temp(self) -> float:
         """Return the minimum temperature."""
-        return 100 # Default/Safe guess, or make constant
+        return 100
 
     @property
     def max_temp(self) -> float:
         """Return the maximum temperature."""
-        return 140 # Default/Safe guess
+        return 140
 
     @property
     def current_operation(self) -> str | None:

@@ -51,26 +51,8 @@ class BradfordWhiteWaveStatusCoordinator(DataUpdateCoordinator[Dict[str, DeviceS
 
             devices = await self.client.list_devices()
             
-            # For each device, we might want to get detailed status if list_devices 
-            # doesn't provide everything.
-            # Unlike the Connect client, list_devices here returns DeviceStatus objects
-            # but models.py says some fields are nullable in 'list' view.
-            # Let's map them by mac address
-            
             device_map = {}
             for device in devices:
-                # Based on client.py, list_devices calls endpoint which returns a list.
-                # If we need more detail, we might need to call get_status(mac) for each.
-                # For now let's assume list_devices is sufficient or we will augment it.
-                # To be safe and ensure we have full data (like temps), we should probably 
-                # call get_status if the device is controllable.
-                
-                # However, calling get_status for every device every 60s might be heavy if many devices.
-                # Let's see if we can get by with just list_devices or if we need to loop.
-                # The prompt says list_devices returns DeviceStatus.
-                
-                # Let's try to get full status for each device to be safe, 
-                # as 'list' usually implies summary.
                 detailed_device = await self.client.get_status(device.mac_address)
                 device_map[detailed_device.mac_address] = detailed_device
 

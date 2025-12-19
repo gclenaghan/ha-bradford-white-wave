@@ -33,7 +33,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         
         # We need a client instance to generate the auth url
-        # We don't have a token yet, so init with None
         client = BradfordWhiteClient()
         auth_url = client.get_authorization_url()
         
@@ -43,9 +42,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 await client.authenticate_with_code(url)
                 
-                # If we are here, we have tokens.
-                # Use the account ID (oid) as unique ID if possible, or part of it from token
-                # client._account_id should be populated after auth
                 if client._account_id:
                      await self.async_set_unique_id(client._account_id)
                      self._abort_if_unique_id_configured()
