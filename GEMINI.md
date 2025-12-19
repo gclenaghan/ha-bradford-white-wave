@@ -29,11 +29,11 @@ The Wave API uses Azure AD B2C with a flow that is difficult to automate fully (
 -   **Update Interval**: 5 minutes (user requested).
 
 ## Current Status
--   **Codebase**: Complete skeleton and core logic implemented in `custom_components/bradford_white_wave`.
--   **Verification**: Code passes `py_compile` checks.
--   **Testing**: Needs verification with a real device/account to confirm API responses match assumptions (especially around exact field names and nullability).
+-   **Codebase**: Complete and verified.
+-   **Verification**: Tested on a live Home Assistant instance with real hardware. All sensors and controls are functioning as expected.
+-   **HACS**: Repository structure is HACS-compliant. `hacs.json` added.
 
 ## Next Steps
-1.  **Manual Verification**: Use `walkthrough.md` steps to test with a real, live HA instance and water heater.
-2.  **Error Handling**: Refine error handling if the API returns unexpected structures (e.g. empty lists for energy).
-3.  **HACS Support**: Ensure repository structure is compatible with HACS (it appears so).
+1.  **Usage**: Can be installed as a HACS custom repository.
+2.  **Maintenance**: Monitor for any API changes from Bradford White.
+3.  **HACS Default Repo**: Consider submitting to the default HACS repository after a period of stability.
