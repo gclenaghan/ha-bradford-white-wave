@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from bradford_white_wave_client import BradfordWhiteClient
-from bradford_white_wave_client.exceptions import BradfordWhiteConnectError
+from bradford_white_wave_client.exceptions import BradfordWhiteConnectError, BradfordWhiteAuthError
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 import voluptuous as vol
@@ -52,7 +52,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "refresh_token": client._refresh_token
                     },
                 )
-            except BradfordWhiteConnectError as err:
+            except (BradfordWhiteConnectError, BradfordWhiteAuthError) as err:
                  _LOGGER.error("Auth failed: %s", err)
                  errors["base"] = "invalid_auth"
             except Exception as e:
