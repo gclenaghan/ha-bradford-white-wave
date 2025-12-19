@@ -6,15 +6,14 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 
 ## Features
 
-- Control Operation Mode (Hybrid, Heat Pump, Electric, Vacation)
+- Control Operation Mode (Hybrid, Hybrid Plus, Heat Pump, Electric, Vacation)
 - Control Setpoint Temperature
 - Sensor for current Operation Mode
 - Energy Usage Sensors (Total, Heat Pump, Element) broken down by:
+    - Hourly
     - Daily
     - Weekly
     - Monthly
-    - Yearly
-- Config Flow for easy setup
 
 ## Installation
 
@@ -68,8 +67,9 @@ The authentication process requires a few manual steps because the relevant Redi
 - `sensor.device_name_energy_daily_total`: Daily total energy (kWh)
 - `sensor.device_name_energy_daily_heat_pump`: Daily heat pump energy (kWh)
 - `sensor.device_name_energy_daily_element`: Daily element energy (kWh)
-- (Similar sensors for Weekly, Monthly, Yearly)
+- (Similar sensors for Hourly, Weekly, Monthly)
 
 ## Disclaimer
-
-This is an unofficial integration and is not affiliated with Bradford White.
+- This is an unofficial library and is not affiliated with Bradford White.
+- I have only tested with an Aerotherm G2.
+- This is largely written in "collaboration" with Gemini, though I have manually reviewed the code and verified the flows.
