@@ -3,7 +3,7 @@
         "step": {
             "user": {
                 "title": "Bradford White Wave Authentication",
-                "description": "Please authenticate with Bradford White to allow Home Assistant to access your water heater.\n\n1. Click [here]({auth_url}) to open the login page.\n2. Log in with your Bradford White account.\n3. After logging in, you will need to retrieve a redirect URL from the browser's developer tools network tab, see [Authentication Guide](https://github.com/gclenaghan/bradford-white-wave-client?tab=readme-ov-file#authentication). (it should start with `com.bradfordwhiteapps.bwconnect://`).\n4. Paste the URL below.",
+                "description": "Please authenticate with Bradford White to allow Home Assistant to access your water heater.\n\n1. Click [here]({auth_url}) to open the login page.\n2. Log in with your Bradford White account.\n3. After logging in, you will need to retrieve a redirect URL from the browser's developer tools network tab, see [Authentication Guide](https://github.com/gclenaghan/ha-bradford-white-wave?tab=readme-ov-file#authentication). (it should start with `com.bradfordwhiteapps.bwconnect://`).\n4. Paste the URL below.",
                 "data": {
                     "url": "Redirect URL"
                 }
