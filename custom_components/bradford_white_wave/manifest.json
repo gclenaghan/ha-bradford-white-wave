@@ -4,9 +4,9 @@
     "codeowners": [],
     "config_flow": true,
     "dependencies": [],
-    "documentation": "https://github.com/gclenaghan/bradford-white-wave-client",
+    "documentation": "https://github.com/gclenaghan/ha-bradford-white-wave",
     "iot_class": "cloud_polling",
-    "issue_tracker": "https://github.com/gclenaghan/bradford-white-wave-client/issues",
+    "issue_tracker": "https://github.com/gclenaghan/ha-bradford-white-wave/issues",
     "requirements": [
         "bradford-white-wave-client>=0.1.0"
     ],
