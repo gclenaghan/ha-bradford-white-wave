@@ -9,9 +9,7 @@ from bradford_white_wave_client import BradfordWhiteClient
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import aiohttp_client
-
-from .const import DOMAIN, REGULAR_INTERVAL, ENERGY_USAGE_INTERVAL
+from .const import DOMAIN
 from .coordinator import (
     BradfordWhiteWaveStatusCoordinator,
     BradfordWhiteWaveEnergyCoordinator,
@@ -33,19 +31,27 @@ class BradfordWhiteWaveData:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Bradford White Wave from a config entry."""
-    
+
     refresh_token = entry.data["refresh_token"]
 
     client = BradfordWhiteClient(refresh_token)
     try:
         await client.authenticate()
+        # Persist token if changed during initial auth
+        if client.refresh_token and client.refresh_token != entry.data.get(
+            "refresh_token"
+        ):
+            _LOGGER.info("Refresh token updated during init, saving to config entry.")
+            hass.config_entries.async_update_entry(
+                entry, data={**entry.data, "refresh_token": client.refresh_token}
+            )
     except Exception as ex:
         _LOGGER.error("Failed to authenticate with Bradford White Wave: %s", ex)
         raise
 
-    status_coordinator = BradfordWhiteWaveStatusCoordinator(hass, client)
-    energy_coordinator = BradfordWhiteWaveEnergyCoordinator(hass, client)
-    
+    status_coordinator = BradfordWhiteWaveStatusCoordinator(hass, client, entry)
+    energy_coordinator = BradfordWhiteWaveEnergyCoordinator(hass, client, entry)
+
     await status_coordinator.async_config_entry_first_refresh()
     await energy_coordinator.async_config_entry_first_refresh()
 
