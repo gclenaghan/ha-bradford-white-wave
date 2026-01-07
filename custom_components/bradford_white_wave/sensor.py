@@ -20,7 +20,7 @@ from .entity import BradfordWhiteWaveEnergyEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-VIEW_TYPES = ["hourly", "daily", "weekly", "monthly"]
+VIEW_TYPES = ["weekly", "monthly"]
 ENERGY_TYPES = ["total_energy", "heat_pump_energy", "element_energy"]
 
 
@@ -119,9 +119,8 @@ class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, SensorEntity)
                 self._cached_value = raw
             elif raw < self._cached_value:
                 # This API sometimes returns a slightly lower value even in between resets,
-                # we will filter these out if the diff is less than 10%, otherwise assume it was
-                # a real reset.
-                if raw < self._cached_value * 0.9:
+                # we will filter these out unless the drop is significant and likely to be a reset
+                if raw < 0.1 or raw < self._cached_value * 0.5:
                     self._cached_value = raw
                 else:
                     # Treat as jitter, ignore the drop (clamp to previous)

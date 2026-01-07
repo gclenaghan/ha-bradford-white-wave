@@ -121,8 +121,8 @@ class BradfordWhiteWaveEnergyCoordinator(
 
             for device in devices:
                 device_data = {}
-                # We want 4 views: hourly, daily, weekly, monthly
-                for view_type in ["hourly", "daily", "weekly", "monthly"]:
+                # We want 2 views: weekly, monthly
+                for view_type in ["weekly", "monthly"]:
                     usage = await self.client.get_energy_usage(
                         device.mac_address, view_type
                     )

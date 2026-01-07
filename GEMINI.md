@@ -30,8 +30,8 @@ The Wave API uses Azure AD B2C with a flow that is difficult to automate fully (
 
 ### Energy Sensors
 
-- **Data Sources**: The API provides detailed energy usage for `hourly`, `daily`, `weekly`, and `monthly` views.
-- **Entities**: We create separate sensor entities for each view type and energy component (Total, Heat Pump, Element).
+- **Data Sources**: The API provides detailed energy usage for `weekly` and `monthly` views (hourly/daily found to be unreliable).
+- **Entities**: We create separate sensor entities for each enabled view type and energy component (Total, Heat Pump, Element).
 - **Update Interval**: 5 minutes (user requested).
 
 ## Current Status
