@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
-
-from bradford_white_wave_client.models import EnergyUsage
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -13,7 +10,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import DeviceInfo
 
@@ -26,6 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 VIEW_TYPES = ["hourly", "daily", "weekly", "monthly"]
 ENERGY_TYPES = ["total_energy", "heat_pump_energy", "element_energy"]
 
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -33,9 +31,9 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator: BradfordWhiteWaveEnergyCoordinator = data.energy_coordinator
     status_coordinator = data.status_coordinator
-    
+
     entities = []
-    
+
     # Use status coordinator to get device info (friendly name etc)
     # Energy coordinator keys should match.
     for mac, device in status_coordinator.data.items():
@@ -51,7 +49,12 @@ async def async_setup_entry(
             for energy_type in ENERGY_TYPES:
                 entities.append(
                     BradfordWhiteWaveEnergySensor(
-                        coordinator, mac, device_info, view_type, energy_type, device.friendly_name
+                        coordinator,
+                        mac,
+                        device_info,
+                        view_type,
+                        energy_type,
+                        device.friendly_name,
                     )
                 )
 
@@ -79,36 +82,62 @@ class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, SensorEntity)
         super().__init__(coordinator, mac_address, info)
         self._view_type = view_type
         self._energy_type = energy_type
-        
+
         # Format name: "DeviceName Daily Total Energy"
         pretty_view = view_type.title()
         pretty_type = energy_type.replace("_", " ").title()
-        
+
         self._attr_unique_id = f"{mac_address}_{view_type}_{energy_type}"
         self._attr_has_entity_name = True
         self._attr_translation_key = f"{view_type}_{energy_type}"
         self._attr_name = f"{pretty_view} {pretty_type}"
 
-    @property
-    def native_value(self) -> float | None:
-        """Return the value."""
+        self._cached_value: float | None = None
+
+    def _get_raw_value(self) -> float | None:
+        """Get the raw value from the coordinator."""
         if not self.device_data:
             return None
-            
+
         view_data = self.device_data.get(self._view_type)
         if not view_data:
             return None
-            
-        # view_data is List[EnergyUsage]
-        # Get the latest one
-        if not view_data:
-            return None
-            
+
         # Latest data is returned first
         latest_usage = view_data[0]
-        
+
         # Get the field
         return getattr(latest_usage, self._energy_type, None)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        raw = self._get_raw_value()
+
+        if raw is not None:
+            if self._cached_value is None:
+                self._cached_value = raw
+            elif raw < self._cached_value:
+                # This API sometimes returns a slightly lower value even in between resets,
+                # we will filter these out if the diff is less than 10%, otherwise assume it was
+                # a real reset.
+                if raw < self._cached_value * 0.9:
+                    self._cached_value = raw
+                else:
+                    # Treat as jitter, ignore the drop (clamp to previous)
+                    pass
+            else:
+                self._cached_value = raw
+
+        super()._handle_coordinator_update()
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the value."""
+        if self._cached_value is None:
+            self._cached_value = self._get_raw_value()
+
+        return self._cached_value
 
     @property
     def available(self) -> bool:
