@@ -10,10 +10,10 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 - Control Setpoint Temperature
 - Sensor for current Operation Mode
 - Energy Usage Sensors (Total, Heat Pump, Element) broken down by:
-    - Hourly
-    - Daily
-    - Weekly
-    - Monthly
+  - Hourly
+  - Daily
+  - Weekly
+  - Monthly
 
 ## Installation
 
@@ -60,16 +60,21 @@ The authentication process requires a few manual steps because the relevant Redi
 ### Water Heater
 
 - `water_heater.device_name`: Controls for mode and temperature.
-    - **Note**: The API does *not* report the current tank temperature, so the entity will not show a current temperature value.
+  - **Note**: The API does _not_ report the current tank temperature, so the entity will not show a current temperature value.
 
 ### Sensors
 
-- `sensor.device_name_energy_daily_total`: Daily total energy (kWh)
-- `sensor.device_name_energy_daily_heat_pump`: Daily heat pump energy (kWh)
-- `sensor.device_name_energy_daily_element`: Daily element energy (kWh)
-- (Similar sensors for Hourly, Weekly, Monthly)
+- `sensor.device_name_energy_monthly_total`: Monthly total energy (kWh)
+- `sensor.device_name_energy_monthly_heat_pump`: Monthly heat pump energy (kWh)
+- `sensor.device_name_energy_monthly_element`: Monthly element energy (kWh)
+- `sensor.device_name_energy_weekly_total`: Weekly total energy (kWh)
+- `sensor.device_name_energy_weekly_heat_pump`: Weekly heat pump energy (kWh)
+- `sensor.device_name_energy_weekly_element`: Weekly element energy (kWh)
+
+Hourly and daily sensors are not currently supported since I found them to be unreliable in testing.
 
 ## Disclaimer
+
 - This is an unofficial library and is not affiliated with Bradford White.
 - I have only tested with an Aerotherm G2.
 - This is largely written in "collaboration" with Gemini, though I have manually reviewed the code and verified the flows.
