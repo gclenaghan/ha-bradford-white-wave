@@ -8,7 +8,7 @@
     "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/gclenaghan/ha-bradford-white-wave/issues",
     "requirements": [
-        "bradford-white-wave-client>=0.1.1"
+        "bradford-white-wave-client>=0.1.2"
     ],
-    "version": "1.0.2"
+    "version": "1.0.3"
 }
