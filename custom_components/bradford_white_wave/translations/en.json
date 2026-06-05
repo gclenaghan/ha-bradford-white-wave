@@ -7,6 +7,13 @@
                 "data": {
                     "url": "Redirect URL"
                 }
+            },
+            "reauth_confirm": {
+                "title": "Reauthenticate Integration",
+                "description": "Please reauthenticate with your Bradford White account to update your credentials.\n\n1. Click [here]({auth_url}) to open the login page.\n2. Log in with your Bradford White account.\n3. After logging in, retrieve the redirect URL starting with `com.bradfordwhiteapps.bwconnect://` and paste it below.",
+                "data": {
+                    "url": "Redirect URL"
+                }
             }
         },
         "error": {
@@ -14,7 +21,8 @@
             "unknown": "Unexpected error."
         },
         "abort": {
-            "already_configured": "Account is already configured"
+            "already_configured": "Account is already configured",
+            "wrong_account": "You must authenticate with the same Bradford White account."
         }
     }
 }

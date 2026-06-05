@@ -41,10 +41,21 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
             try:
                 await client.authenticate_with_code(url)
-                
+            except (BradfordWhiteConnectError, BradfordWhiteAuthError) as err:
+                 _LOGGER.error("Auth failed: %s", err)
+                 errors["base"] = "invalid_auth"
+            except Exception:
+                 _LOGGER.exception("Unexpected exception during auth")
+                 errors["base"] = "unknown"
+            finally:
+                 await client.close()
+
+            if not errors:
                 if client._account_id:
                      await self.async_set_unique_id(client._account_id)
-                     self._abort_if_unique_id_configured()
+                     self._abort_if_unique_id_configured(
+                         updates={"refresh_token": client._refresh_token}
+                     )
                 
                 return self.async_create_entry(
                     title="Bradford White Wave",
@@ -52,17 +63,54 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "refresh_token": client._refresh_token
                     },
                 )
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=STEP_USER_DATA_Schema,
+            errors=errors,
+            description_placeholders={
+                "auth_url": auth_url
+            }
+        )
+
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> FlowResult:
+        """Handle reauthentication."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Confirm reauthentication."""
+        errors: dict[str, str] = {}
+        client = BradfordWhiteClient()
+        auth_url = client.get_authorization_url()
+
+        if user_input is not None:
+            url = user_input["url"]
+            try:
+                await client.authenticate_with_code(url)
+                
+                if client._account_id:
+                     await self.async_set_unique_id(client._account_id)
+                     self._abort_if_unique_id_mismatch(reason="wrong_account")
+                
+                return self.async_update_reload_and_abort(
+                     self._get_reauth_entry(),
+                     data={"refresh_token": client._refresh_token},
+                )
             except (BradfordWhiteConnectError, BradfordWhiteAuthError) as err:
                  _LOGGER.error("Auth failed: %s", err)
                  errors["base"] = "invalid_auth"
-            except Exception as e:
+            except Exception:
                  _LOGGER.exception("Unexpected exception during auth")
                  errors["base"] = "unknown"
             finally:
                  await client.close()
 
         return self.async_show_form(
-            step_id="user",
+            step_id="reauth_confirm",
             data_schema=STEP_USER_DATA_Schema,
             errors=errors,
             description_placeholders={
