@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from homeassistant.components.select import SelectEntity
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
 from bradford_white_wave_client import (
     BradfordWhiteAuthError,
     BradfordWhiteConnectError,
     BradfordWhiteMode,
 )
+from homeassistant.components.select import SelectEntity
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import BW_TO_SELECT_OPTIONS, SELECT_OPTIONS_TO_BW
 from .coordinator import BradfordWhiteConfigEntry, BradfordWhiteWaveStatusCoordinator

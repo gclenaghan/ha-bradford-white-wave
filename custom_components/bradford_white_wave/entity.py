@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+from bradford_white_wave_client import DeviceStatus, EnergyUsage
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
 )
-
-from bradford_white_wave_client import DeviceStatus, EnergyUsage
 
 from .const import DOMAIN
 from .coordinator import (

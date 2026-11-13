@@ -6,11 +6,6 @@ import logging
 import time
 from dataclasses import dataclass
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-
 from bradford_white_wave_client import (
     BradfordWhiteAuthError,
     BradfordWhiteClient,
@@ -20,6 +15,10 @@ from bradford_white_wave_client import (
     EnergyUsage,
     EnergyViewType,
 )
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
     DOMAIN,

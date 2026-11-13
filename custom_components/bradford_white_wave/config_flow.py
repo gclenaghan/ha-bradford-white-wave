@@ -7,6 +7,11 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
+from bradford_white_wave_client import (
+    BradfordWhiteAuthError,
+    BradfordWhiteClient,
+    BradfordWhiteConnectError,
+)
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
@@ -15,12 +20,6 @@ from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
-)
-
-from bradford_white_wave_client import (
-    BradfordWhiteAuthError,
-    BradfordWhiteClient,
-    BradfordWhiteConnectError,
 )
 
 from .const import CONF_REFRESH_TOKEN, DOMAIN

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from bradford_white_wave_client import BradfordWhiteMode
 from homeassistant.components.water_heater import (
     STATE_ECO,
     STATE_ELECTRIC,
@@ -11,8 +12,6 @@ from homeassistant.components.water_heater import (
     STATE_HIGH_DEMAND,
     STATE_OFF,
 )
-
-from bradford_white_wave_client import BradfordWhiteMode
 
 DOMAIN = "bradford_white_wave"
 CONF_REFRESH_TOKEN = "refresh_token"

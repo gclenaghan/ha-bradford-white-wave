@@ -6,6 +6,11 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from bradford_white_wave_client import (
+    BradfordWhiteAuthError,
+    BradfordWhiteConnectError,
+    BradfordWhiteMode,
+)
 from homeassistant.components.water_heater import (
     WaterHeaterEntity,
     WaterHeaterEntityFeature,
@@ -15,12 +20,6 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-from bradford_white_wave_client import (
-    BradfordWhiteAuthError,
-    BradfordWhiteConnectError,
-    BradfordWhiteMode,
-)
 
 from .const import MODE_BW_TO_HA, MODE_HA_TO_BW
 from .coordinator import BradfordWhiteConfigEntry, BradfordWhiteWaveStatusCoordinator
