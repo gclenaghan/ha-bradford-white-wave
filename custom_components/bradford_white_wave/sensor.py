@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import ENABLED_ENERGY_VIEWS, BradfordWhiteWaveEnergyCoordinator
-from .entity import BradfordWhiteWaveEnergyEntity
+from .entity import BradfordWhiteWaveEnergyEntity, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,13 +35,7 @@ async def async_setup_entry(
     entities: list[BradfordWhiteWaveEnergySensor] = []
 
     for mac, device in status_coordinator.data.items():
-        device_info = DeviceInfo(
-            identifiers={(DOMAIN, mac)},
-            name=device.friendly_name,
-            manufacturer="Bradford White",
-            model=device.appliance_type,
-            serial_number=device.serial_number,
-        )
+        device_info = build_device_info(mac, device)
 
         for view_type in ENABLED_ENERGY_VIEWS:
             for energy_type in ENERGY_TYPES:
@@ -79,13 +73,8 @@ class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, SensorEntity)
         self._view_type = view_type
         self._energy_type = energy_type
 
-        pretty_view = view_type.title()
-        pretty_type = energy_type.replace("_", " ").title()
-
         self._attr_unique_id = f"{mac_address}_{view_type}_{energy_type}"
-        self._attr_has_entity_name = True
         self._attr_translation_key = f"{view_type}_{energy_type}"
-        self._attr_name = f"{pretty_view} {pretty_type}"
 
         self._cached_value: float | None = None
 

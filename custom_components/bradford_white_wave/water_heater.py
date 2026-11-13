@@ -26,7 +26,7 @@ from bradford_white_wave_client import (
 
 from .const import DOMAIN, MODE_BW_TO_HA, MODE_HA_TO_BW
 from .coordinator import BradfordWhiteWaveStatusCoordinator
-from .entity import BradfordWhiteWaveStatusEntity
+from .entity import BradfordWhiteWaveStatusEntity, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,18 +38,10 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator: BradfordWhiteWaveStatusCoordinator = data.status_coordinator
 
-    entities: list[BradfordWhiteWaveWaterHeater] = []
-
-    for mac, device in coordinator.data.items():
-        device_info = DeviceInfo(
-            identifiers={(DOMAIN, mac)},
-            name=device.friendly_name,
-            manufacturer="Bradford White",
-            model=device.appliance_type,
-            serial_number=device.serial_number,
-        )
-
-        entities.append(BradfordWhiteWaveWaterHeater(coordinator, mac, device_info))
+    entities = [
+        BradfordWhiteWaveWaterHeater(coordinator, mac, build_device_info(mac, device))
+        for mac, device in coordinator.data.items()
+    ]
 
     async_add_entities(entities)
 
@@ -57,8 +49,12 @@ async def async_setup_entry(
 class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEntity):
     """Bradford White Wave Water Heater Entity."""
 
-    _attr_temperature_unit = UnitOfTemperature.FAHRENHEIT
+    _attr_name = None
+    _attr_native_temperature_unit = UnitOfTemperature.FAHRENHEIT
     _attr_precision = PRECISION_WHOLE
+    _attr_target_temperature_step = 1.0
+    _attr_min_temp = 100.0
+    _attr_max_temp = 140.0
     _attr_supported_features = (
         WaterHeaterEntityFeature.TARGET_TEMPERATURE
         | WaterHeaterEntityFeature.OPERATION_MODE
@@ -74,24 +70,13 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
         """Initialize."""
         super().__init__(coordinator, mac_address, info)
         self._attr_unique_id = mac_address
-        self._attr_name = None
 
     @property
-    def target_temperature(self) -> float | None:
-        """Return the temperature we try to reach."""
-        if self.device:
-            return self.device.setpoint_fahrenheit
+    def native_target_temperature(self) -> float | None:
+        """Return the target temperature in Fahrenheit."""
+        if self.device and self.device.setpoint_fahrenheit is not None:
+            return float(self.device.setpoint_fahrenheit)
         return None
-
-    @property
-    def min_temp(self) -> float:
-        """Return the minimum temperature."""
-        return 100
-
-    @property
-    def max_temp(self) -> float:
-        """Return the maximum temperature."""
-        return 140
 
     @property
     def current_operation(self) -> str | None:
@@ -127,7 +112,9 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
         temp = kwargs.get("temperature")
         if temp is not None:
             await self._async_execute_control(
-                lambda: self.coordinator.client.set_temperature(self.mac_address, int(temp))
+                lambda: self.coordinator.client.set_temperature(
+                    self.mac_address, round(float(temp))
+                )
             )
 
     async def async_set_operation_mode(self, operation_mode: str) -> None:

@@ -35,6 +35,20 @@ ENABLED_ENERGY_VIEWS: tuple[EnergyViewType, ...] = (
 )
 
 
+def _merge_device_metadata(summary: DeviceStatus, detailed: DeviceStatus) -> DeviceStatus:
+    """Preserve list-only metadata (such as appliance_type) on detailed status objects."""
+    return detailed.model_copy(
+        update={
+            "friendly_name": detailed.friendly_name or summary.friendly_name,
+            "serial_number": detailed.serial_number or summary.serial_number,
+            "appliance_type": detailed.appliance_type or summary.appliance_type,
+            "access_level": (
+                detailed.access_level if detailed.access_level is not None else summary.access_level
+            ),
+        }
+    )
+
+
 class BradfordWhiteWaveStatusCoordinator(DataUpdateCoordinator[dict[str, DeviceStatus]]):
     """Coordinator for device status, updating with a frequent interval."""
 
@@ -71,7 +85,8 @@ class BradfordWhiteWaveStatusCoordinator(DataUpdateCoordinator[dict[str, DeviceS
             device_map: dict[str, DeviceStatus] = {}
             for device in devices:
                 detailed_device = await self.client.get_status(device.mac_address)
-                device_map[detailed_device.mac_address] = detailed_device
+                merged = _merge_device_metadata(device, detailed_device)
+                device_map[merged.mac_address] = merged
 
             return device_map
 

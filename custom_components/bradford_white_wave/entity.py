@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import (
 
 from bradford_white_wave_client import DeviceStatus, EnergyUsage
 
+from .const import DOMAIN
 from .coordinator import (
     BradfordWhiteWaveEnergyCoordinator,
     BradfordWhiteWaveStatusCoordinator,
@@ -20,8 +21,21 @@ from .coordinator import (
 _CoordinatorT = TypeVar("_CoordinatorT", bound=DataUpdateCoordinator)
 
 
+def build_device_info(mac_address: str, device: DeviceStatus) -> DeviceInfo:
+    """Build standard Home Assistant DeviceInfo from a Bradford White Wave device."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, mac_address)},
+        name=device.friendly_name,
+        manufacturer="Bradford White",
+        model=device.appliance_type,
+        serial_number=device.serial_number,
+    )
+
+
 class BradfordWhiteWaveBaseEntity(CoordinatorEntity[_CoordinatorT], Generic[_CoordinatorT]):
     """Base entity for Bradford White Wave."""
+
+    _attr_has_entity_name = True
 
     def __init__(self, coordinator: _CoordinatorT, mac_address: str, info: DeviceInfo) -> None:
         """Initialize the entity."""
@@ -38,7 +52,7 @@ class BradfordWhiteWaveBaseEntity(CoordinatorEntity[_CoordinatorT], Generic[_Coo
 class BradfordWhiteWaveStatusEntity(
     BradfordWhiteWaveBaseEntity[BradfordWhiteWaveStatusCoordinator]
 ):
-    """Base entity for status (water heater)."""
+    """Base entity for status-backed platforms (water heater, select)."""
 
     def __init__(
         self,

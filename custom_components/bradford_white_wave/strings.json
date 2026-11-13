@@ -37,5 +37,27 @@
             "reconfigure_successful": "Configuration updated successfully",
             "wrong_account": "You must authenticate with the same Bradford White account."
         }
+    },
+    "entity": {
+        "sensor": {
+            "weekly_total_energy": {
+                "name": "Weekly Total Energy"
+            },
+            "weekly_heat_pump_energy": {
+                "name": "Weekly Heat Pump Energy"
+            },
+            "weekly_element_energy": {
+                "name": "Weekly Element Energy"
+            },
+            "monthly_total_energy": {
+                "name": "Monthly Total Energy"
+            },
+            "monthly_heat_pump_energy": {
+                "name": "Monthly Heat Pump Energy"
+            },
+            "monthly_element_energy": {
+                "name": "Monthly Element Energy"
+            }
+        }
     }
 }
