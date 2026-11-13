@@ -65,7 +65,7 @@ def test_manifest_hacs_translations_and_icons_sync() -> None:
     """Validate manifest.json, hacs.json, strings.json, en.json, and icons.json."""
     manifest = json.loads((COMPONENT_DIR / "manifest.json").read_text())
     assert manifest["domain"] == "bradford_white_wave"
-    assert manifest["version"] == "1.1.0b2"
+    assert manifest["version"] == "1.1.0"
     assert manifest["requirements"] == ["bradford-white-wave-client>=1.0.0"]
     keys = list(manifest.keys())
     assert keys[:2] == ["domain", "name"]
