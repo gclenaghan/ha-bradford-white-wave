@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 
 from homeassistant.components.sensor import (
+    RestoreSensor,
     SensorDeviceClass,
-    SensorEntity,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -52,7 +53,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, SensorEntity):
+class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, RestoreSensor):
     """Energy Sensor."""
 
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -90,29 +91,41 @@ class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, SensorEntity)
         latest_usage = view_data[0]
         return getattr(latest_usage, self._energy_type, None)
 
+    def _update_cached_value(self, raw: float | None) -> None:
+        """Update cached energy value while filtering minor downward API jitter."""
+        if raw is None:
+            return
+        if self._cached_value is None:
+            self._cached_value = raw
+        elif raw < self._cached_value:
+            # This API sometimes returns a slightly lower value even in between resets;
+            # filter these out unless the drop is significant and likely a period reset.
+            if raw < 0.1 or raw < self._cached_value * 0.5:
+                self._cached_value = raw
+        else:
+            self._cached_value = raw
+
+    async def async_added_to_hass(self) -> None:
+        """Restore last known value on startup before evaluating initial coordinator data."""
+        await super().async_added_to_hass()
+        if (
+            last_data := await self.async_get_last_sensor_data()
+        ) is not None and last_data.native_value is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                self._cached_value = float(last_data.native_value)
+        self._update_cached_value(self._get_raw_value())
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        raw = self._get_raw_value()
-
-        if raw is not None:
-            if self._cached_value is None:
-                self._cached_value = raw
-            elif raw < self._cached_value:
-                # This API sometimes returns a slightly lower value even in between resets;
-                # filter these out unless the drop is significant and likely a period reset.
-                if raw < 0.1 or raw < self._cached_value * 0.5:
-                    self._cached_value = raw
-            else:
-                self._cached_value = raw
-
+        self._update_cached_value(self._get_raw_value())
         super()._handle_coordinator_update()
 
     @property
     def native_value(self) -> float | None:
         """Return the value."""
         if self._cached_value is None:
-            self._cached_value = self._get_raw_value()
+            self._update_cached_value(self._get_raw_value())
 
         return self._cached_value
 

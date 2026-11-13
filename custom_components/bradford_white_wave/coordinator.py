@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import datetime
 import logging
-from typing import Any
+import time
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -15,6 +14,7 @@ from bradford_white_wave_client import (
     BradfordWhiteAuthError,
     BradfordWhiteClient,
     BradfordWhiteConnectError,
+    BradfordWhiteMode,
     DeviceStatus,
     EnergyUsage,
     EnergyViewType,
@@ -64,23 +64,59 @@ class BradfordWhiteWaveStatusCoordinator(DataUpdateCoordinator[dict[str, DeviceS
         )
         self.client = client
         self.entry = entry
-        self.shared_data: dict[str, Any] = {}
+        self._last_control_monotonic: float | None = None
+        self._devices_cache: list[DeviceStatus] = []
+
+    def _is_fast_poll_active(self) -> bool:
+        """Return True if within the fast-polling window following a control action."""
+        if self._last_control_monotonic is None:
+            return False
+        return (time.monotonic() - self._last_control_monotonic) < REGULAR_INTERVAL.total_seconds()
+
+    @callback
+    def mark_control_action(self) -> None:
+        """Record a control write and switch to the fast polling interval."""
+        self._last_control_monotonic = time.monotonic()
+        if self.update_interval != FAST_INTERVAL:
+            _LOGGER.debug("Setting fast update interval")
+            self.update_interval = FAST_INTERVAL
+
+    @callback
+    def apply_optimistic_temperature(self, mac_address: str, temperature: int) -> None:
+        """Update cached device setpoint optimistically and schedule fast polling."""
+        self.mark_control_action()
+        if self.data and (current := self.data.get(mac_address)) is not None:
+            updated = current.model_copy(update={"setpoint_fahrenheit": temperature})
+            self.async_set_updated_data({**self.data, mac_address: updated})
+
+    @callback
+    def apply_optimistic_mode(self, mac_address: str, mode: BradfordWhiteMode) -> None:
+        """Update cached device mode optimistically and schedule fast polling."""
+        self.mark_control_action()
+        if self.data and (current := self.data.get(mac_address)) is not None:
+            updated = current.model_copy(update={"heat_mode_value": int(mode)})
+            self.async_set_updated_data({**self.data, mac_address: updated})
 
     async def _async_update_data(self) -> dict[str, DeviceStatus]:
         """Fetch latest data from the device status endpoint."""
         try:
-            last_api_set = self.shared_data.get("last_api_set_datetime")
-            if last_api_set:
-                if (datetime.datetime.now() - last_api_set) < REGULAR_INTERVAL:
-                    if self.update_interval != FAST_INTERVAL:
-                        _LOGGER.debug("Setting fast update interval")
-                        self.update_interval = FAST_INTERVAL
-                elif self.update_interval != REGULAR_INTERVAL:
-                    _LOGGER.debug("Setting regular update interval")
-                    self.update_interval = REGULAR_INTERVAL
-                    self.shared_data["last_api_set_datetime"] = None
+            fast_poll = self._is_fast_poll_active()
+            if fast_poll:
+                if self.update_interval != FAST_INTERVAL:
+                    _LOGGER.debug("Setting fast update interval")
+                    self.update_interval = FAST_INTERVAL
+            elif (
+                self._last_control_monotonic is not None or self.update_interval != REGULAR_INTERVAL
+            ):
+                _LOGGER.debug("Setting regular update interval")
+                self.update_interval = REGULAR_INTERVAL
+                self._last_control_monotonic = None
 
-            devices = await self.client.list_devices()
+            if fast_poll and self._devices_cache:
+                devices = self._devices_cache
+            else:
+                devices = await self.client.list_devices()
+                self._devices_cache = devices
 
             device_map: dict[str, DeviceStatus] = {}
             for device in devices:
@@ -110,6 +146,7 @@ class BradfordWhiteWaveEnergyCoordinator(
         hass: HomeAssistant,
         client: BradfordWhiteClient,
         entry: ConfigEntry,
+        status_coordinator: BradfordWhiteWaveStatusCoordinator | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -120,13 +157,17 @@ class BradfordWhiteWaveEnergyCoordinator(
         )
         self.client = client
         self.entry = entry
+        self.status_coordinator = status_coordinator
 
     async def _async_update_data(self) -> dict[str, dict[str, list[EnergyUsage]]]:
         """Fetch latest energy data."""
         data: dict[str, dict[str, list[EnergyUsage]]] = {}
 
         try:
-            devices = await self.client.list_devices()
+            if self.status_coordinator and self.status_coordinator.data:
+                devices = list(self.status_coordinator.data.values())
+            else:
+                devices = await self.client.list_devices()
 
             for device in devices:
                 device_data: dict[str, list[EnergyUsage]] = {}

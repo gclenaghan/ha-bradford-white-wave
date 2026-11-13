@@ -76,9 +76,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ) from ex
 
     status_coordinator = BradfordWhiteWaveStatusCoordinator(hass, client, entry)
-    energy_coordinator = BradfordWhiteWaveEnergyCoordinator(hass, client, entry)
-
     await status_coordinator.async_config_entry_first_refresh()
+
+    energy_coordinator = BradfordWhiteWaveEnergyCoordinator(hass, client, entry, status_coordinator)
     await energy_coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = BradfordWhiteWaveData(
