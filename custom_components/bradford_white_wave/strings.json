@@ -39,6 +39,18 @@
         }
     },
     "entity": {
+        "select": {
+            "operation_mode": {
+                "name": "Operation Mode",
+                "state": {
+                    "hybrid": "Hybrid",
+                    "hybrid_plus": "Hybrid Plus",
+                    "heat_pump": "Heat Pump",
+                    "electric": "Electric",
+                    "vacation": "Vacation"
+                }
+            }
+        },
         "sensor": {
             "weekly_total_energy": {
                 "name": "Weekly Total Energy"

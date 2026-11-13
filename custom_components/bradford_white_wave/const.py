@@ -38,3 +38,16 @@ MODE_BW_TO_HA: dict[BradfordWhiteMode, str] = {
     BradfordWhiteMode.HYBRID: STATE_ECO,
     BradfordWhiteMode.VACATION: STATE_OFF,
 }
+
+# Native Bradford White operation mode options for the select entity
+SELECT_OPTIONS_TO_BW: dict[str, BradfordWhiteMode] = {
+    "hybrid": BradfordWhiteMode.HYBRID,
+    "hybrid_plus": BradfordWhiteMode.HYBRID_PLUS,
+    "heat_pump": BradfordWhiteMode.HEAT_PUMP,
+    "electric": BradfordWhiteMode.ELECTRIC,
+    "vacation": BradfordWhiteMode.VACATION,
+}
+
+BW_TO_SELECT_OPTIONS: dict[BradfordWhiteMode, str] = {
+    mode: option for option, mode in SELECT_OPTIONS_TO_BW.items()
+}

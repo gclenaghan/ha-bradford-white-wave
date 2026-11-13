@@ -7,17 +7,21 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 ## Features
 
 - Control Operation Mode (Hybrid, Hybrid Plus, Heat Pump, Electric, Vacation)
-- Control Setpoint Temperature
-- Sensor for current Operation Mode
+- Control Setpoint Temperature (100–140 °F)
+- Dedicated Select entity exposing native Bradford White Operation Modes
 - Energy Usage Sensors (Total, Heat Pump, Element) broken down by:
   - Weekly
   - Monthly
+
+## Requirements
+
+- Home Assistant **2026.11.0** or newer.
 
 ## Installation
 
 ### Marketplace / HACS (Recommended)
 
-1. Open **Settings -> Marketplace** (or **HACS** on Home Assistant < 2026.11).
+1. Open **Settings -> Marketplace** (or **HACS**).
 2. Click the three dots in the top right and select **Custom repositories**.
 3. Add `https://github.com/gclenaghan/ha-bradford-white-wave` with category **Integration**, then click **Add**.
 4. Find **Bradford White Wave** and click **Download** / **Install**.
@@ -39,17 +43,21 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 
 ### Water Heater
 
-- `water_heater.device_name`: Controls for mode and temperature.
+- `water_heater.<device_name>`: Standard Home Assistant water heater controls for mode (`eco`, `high_demand`, `heat_pump`, `electric`, `off`), away mode, and target temperature.
   - **Note**: The API does _not_ report the current tank temperature, so the entity will not show a current temperature value.
+
+### Select
+
+- `select.<device_name>_operation_mode`: Direct control and display of Bradford White's native operation mode names (`Hybrid`, `Hybrid Plus`, `Heat Pump`, `Electric`, `Vacation`).
 
 ### Sensors
 
-- `sensor.device_name_energy_monthly_total`: Monthly total energy (kWh)
-- `sensor.device_name_energy_monthly_heat_pump`: Monthly heat pump energy (kWh)
-- `sensor.device_name_energy_monthly_element`: Monthly element energy (kWh)
-- `sensor.device_name_energy_weekly_total`: Weekly total energy (kWh)
-- `sensor.device_name_energy_weekly_heat_pump`: Weekly heat pump energy (kWh)
-- `sensor.device_name_energy_weekly_element`: Weekly element energy (kWh)
+- `sensor.<device_name>_monthly_total_energy`: Monthly total energy (kWh)
+- `sensor.<device_name>_monthly_heat_pump_energy`: Monthly heat pump energy (kWh)
+- `sensor.<device_name>_monthly_element_energy`: Monthly element energy (kWh)
+- `sensor.<device_name>_weekly_total_energy`: Weekly total energy (kWh)
+- `sensor.<device_name>_weekly_heat_pump_energy`: Weekly heat pump energy (kWh)
+- `sensor.<device_name>_weekly_element_energy`: Weekly element energy (kWh)
 
 Hourly and daily sensors are not currently enabled since they were found to be unreliable in testing.
 
