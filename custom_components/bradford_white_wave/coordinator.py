@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -59,6 +60,7 @@ class BradfordWhiteWaveStatusCoordinator(DataUpdateCoordinator[dict[str, DeviceS
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=f"{DOMAIN}_status",
             update_interval=REGULAR_INTERVAL,
         )
@@ -152,6 +154,7 @@ class BradfordWhiteWaveEnergyCoordinator(
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=f"{DOMAIN}_energy",
             update_interval=ENERGY_USAGE_INTERVAL,
         )
@@ -187,3 +190,15 @@ class BradfordWhiteWaveEnergyCoordinator(
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
         return data
+
+
+@dataclass
+class BradfordWhiteWaveData:
+    """Runtime data for the Bradford White Wave integration."""
+
+    client: BradfordWhiteClient
+    status_coordinator: BradfordWhiteWaveStatusCoordinator
+    energy_coordinator: BradfordWhiteWaveEnergyCoordinator
+
+
+type BradfordWhiteConfigEntry = ConfigEntry[BradfordWhiteWaveData]

@@ -1,0 +1,36 @@
+{
+    "entity": {
+        "select": {
+            "operation_mode": {
+                "default": "mdi:water-boiler",
+                "state": {
+                    "hybrid": "mdi:heat-pump-outline",
+                    "hybrid_plus": "mdi:fire-circle",
+                    "heat_pump": "mdi:heat-pump",
+                    "electric": "mdi:lightning-bolt",
+                    "vacation": "mdi:beach"
+                }
+            }
+        },
+        "sensor": {
+            "weekly_total_energy": {
+                "default": "mdi:lightning-bolt"
+            },
+            "weekly_heat_pump_energy": {
+                "default": "mdi:heat-pump"
+            },
+            "weekly_element_energy": {
+                "default": "mdi:heating-coil"
+            },
+            "monthly_total_energy": {
+                "default": "mdi:lightning-bolt"
+            },
+            "monthly_heat_pump_energy": {
+                "default": "mdi:heat-pump"
+            },
+            "monthly_element_energy": {
+                "default": "mdi:heating-coil"
+            }
+        }
+    }
+}

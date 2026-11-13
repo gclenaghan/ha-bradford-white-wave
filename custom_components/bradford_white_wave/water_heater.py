@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from typing import Any
 
 from homeassistant.components.water_heater import (
     WaterHeaterEntity,
     WaterHeaterEntityFeature,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, PRECISION_WHOLE, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -23,20 +22,22 @@ from bradford_white_wave_client import (
     BradfordWhiteMode,
 )
 
-from .const import DOMAIN, MODE_BW_TO_HA, MODE_HA_TO_BW
-from .coordinator import BradfordWhiteWaveStatusCoordinator
+from .const import MODE_BW_TO_HA, MODE_HA_TO_BW
+from .coordinator import BradfordWhiteConfigEntry, BradfordWhiteWaveStatusCoordinator
 from .entity import BradfordWhiteWaveStatusEntity, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
-_ResultT = TypeVar("_ResultT")
+
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: BradfordWhiteConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the water heater platform."""
-    data = hass.data[DOMAIN][entry.entry_id]
-    coordinator: BradfordWhiteWaveStatusCoordinator = data.status_coordinator
+    coordinator = entry.runtime_data.status_coordinator
 
     entities = [
         BradfordWhiteWaveWaterHeater(coordinator, mac, build_device_info(mac, device))
@@ -108,7 +109,9 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
         """List of available operation modes."""
         return list(MODE_HA_TO_BW.keys())
 
-    async def _async_execute_control(self, action: Callable[[], Awaitable[_ResultT]]) -> _ResultT:
+    async def _async_execute_control[ResultT](
+        self, action: Callable[[], Awaitable[ResultT]]
+    ) -> ResultT:
         """Execute a write action and wrap client errors."""
         try:
             return await action()

@@ -10,28 +10,33 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
-from .coordinator import ENABLED_ENERGY_VIEWS, BradfordWhiteWaveEnergyCoordinator
+from .coordinator import (
+    ENABLED_ENERGY_VIEWS,
+    BradfordWhiteConfigEntry,
+    BradfordWhiteWaveEnergyCoordinator,
+)
 from .entity import BradfordWhiteWaveEnergyEntity, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
+
+PARALLEL_UPDATES = 0
 
 ENERGY_TYPES: tuple[str, ...] = ("total_energy", "heat_pump_energy", "element_energy")
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: BradfordWhiteConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    data = hass.data[DOMAIN][entry.entry_id]
-    coordinator: BradfordWhiteWaveEnergyCoordinator = data.energy_coordinator
-    status_coordinator = data.status_coordinator
+    coordinator = entry.runtime_data.energy_coordinator
+    status_coordinator = entry.runtime_data.status_coordinator
 
     entities: list[BradfordWhiteWaveEnergySensor] = []
 

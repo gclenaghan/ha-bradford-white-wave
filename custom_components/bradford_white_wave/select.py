@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -15,17 +14,20 @@ from bradford_white_wave_client import (
     BradfordWhiteMode,
 )
 
-from .const import BW_TO_SELECT_OPTIONS, DOMAIN, SELECT_OPTIONS_TO_BW
-from .coordinator import BradfordWhiteWaveStatusCoordinator
+from .const import BW_TO_SELECT_OPTIONS, SELECT_OPTIONS_TO_BW
+from .coordinator import BradfordWhiteConfigEntry, BradfordWhiteWaveStatusCoordinator
 from .entity import BradfordWhiteWaveStatusEntity, build_device_info
+
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: BradfordWhiteConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Bradford White Wave select platform."""
-    data = hass.data[DOMAIN][entry.entry_id]
-    coordinator: BradfordWhiteWaveStatusCoordinator = data.status_coordinator
+    coordinator = entry.runtime_data.status_coordinator
 
     entities = [
         BradfordWhiteWaveModeSelect(coordinator, mac, build_device_info(mac, device))

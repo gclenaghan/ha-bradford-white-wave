@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
-
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -18,8 +16,6 @@ from .coordinator import (
     BradfordWhiteWaveStatusCoordinator,
 )
 
-_CoordinatorT = TypeVar("_CoordinatorT", bound=DataUpdateCoordinator)
-
 
 def build_device_info(mac_address: str, device: DeviceStatus) -> DeviceInfo:
     """Build standard Home Assistant DeviceInfo from a Bradford White Wave device."""
@@ -32,12 +28,14 @@ def build_device_info(mac_address: str, device: DeviceStatus) -> DeviceInfo:
     )
 
 
-class BradfordWhiteWaveBaseEntity(CoordinatorEntity[_CoordinatorT], Generic[_CoordinatorT]):
+class BradfordWhiteWaveBaseEntity[CoordinatorT: DataUpdateCoordinator](
+    CoordinatorEntity[CoordinatorT]
+):
     """Base entity for Bradford White Wave."""
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: _CoordinatorT, mac_address: str, info: DeviceInfo) -> None:
+    def __init__(self, coordinator: CoordinatorT, mac_address: str, info: DeviceInfo) -> None:
         """Initialize the entity."""
         super().__init__(coordinator)
         self.mac_address = mac_address
