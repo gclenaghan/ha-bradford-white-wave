@@ -3,117 +3,188 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
-from bradford_white_wave_client import BradfordWhiteClient
-from bradford_white_wave_client.exceptions import BradfordWhiteConnectError, BradfordWhiteAuthError
-from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
 import voluptuous as vol
+from homeassistant import config_entries
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN
+from bradford_white_wave_client import (
+    BradfordWhiteAuthError,
+    BradfordWhiteClient,
+    BradfordWhiteConnectError,
+)
+
+from .const import CONF_REFRESH_TOKEN, DOMAIN
+
+try:
+    from homeassistant.config_entries import ConfigFlowResult
+except ImportError:  # pragma: no cover
+    from homeassistant.data_entry_flow import FlowResult as ConfigFlowResult
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_Schema = vol.Schema(
+STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required("url"): str,
+        vol.Required(CONF_EMAIL): str,
+        vol.Required(CONF_PASSWORD): str,
     }
 )
+
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Bradford White Wave."""
 
     VERSION = 1
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle the initial step."""
+    async def _async_authenticate(
+        self, email: str, password: str
+    ) -> tuple[BradfordWhiteClient | None, dict[str, str]]:
+        """Validate credentials and return the authenticated client or error map."""
         errors: dict[str, str] = {}
-        
-        # We need a client instance to generate the auth url
-        client = BradfordWhiteClient()
-        auth_url = client.get_authorization_url()
-        
-        if user_input is not None:
-            url = user_input["url"]
-            
-            try:
-                await client.authenticate_with_code(url)
-            except (BradfordWhiteConnectError, BradfordWhiteAuthError) as err:
-                 _LOGGER.error("Auth failed: %s", err)
-                 errors["base"] = "invalid_auth"
-            except Exception:
-                 _LOGGER.exception("Unexpected exception during auth")
-                 errors["base"] = "unknown"
-            finally:
-                 await client.close()
+        client = BradfordWhiteClient(session=async_get_clientsession(self.hass))
+        try:
+            await client.authenticate_with_credentials(email, password)
+        except BradfordWhiteAuthError as err:
+            _LOGGER.warning("Authentication failed: %s", err)
+            errors["base"] = "invalid_auth"
+        except BradfordWhiteConnectError as err:
+            _LOGGER.error("Connection error during authentication: %s", err)
+            errors["base"] = "cannot_connect"
+        except Exception:
+            _LOGGER.exception("Unexpected exception during authentication")
+            errors["base"] = "unknown"
+        finally:
+            await client.close()
 
-            if not errors:
-                if client._account_id:
-                     await self.async_set_unique_id(client._account_id)
-                     self._abort_if_unique_id_configured(
-                         updates={"refresh_token": client._refresh_token}
-                     )
-                
+        if errors:
+            return None, errors
+        return client, errors
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Handle initial configuration via email and password."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            email = user_input[CONF_EMAIL].strip()
+            password = user_input[CONF_PASSWORD]
+            client, errors = await self._async_authenticate(email, password)
+
+            if client is not None:
+                entry_data = {
+                    CONF_EMAIL: email,
+                    CONF_PASSWORD: password,
+                    CONF_REFRESH_TOKEN: client.refresh_token,
+                }
+                if client.account_id:
+                    await self.async_set_unique_id(client.account_id)
+                    self._abort_if_unique_id_configured(updates=entry_data)
+
                 return self.async_create_entry(
                     title="Bradford White Wave",
-                    data={
-                        "refresh_token": client._refresh_token
-                    },
+                    data=entry_data,
                 )
+
+        schema = STEP_USER_DATA_SCHEMA
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(
+                schema, {CONF_EMAIL: user_input.get(CONF_EMAIL, "")}
+            )
 
         return self.async_show_form(
             step_id="user",
-            data_schema=STEP_USER_DATA_Schema,
+            data_schema=schema,
             errors=errors,
-            description_placeholders={
-                "auth_url": auth_url
-            }
         )
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> FlowResult:
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
         """Handle reauthentication."""
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Confirm reauthentication."""
+    ) -> ConfigFlowResult:
+        """Confirm reauthentication with updated credentials."""
         errors: dict[str, str] = {}
-        client = BradfordWhiteClient()
-        auth_url = client.get_authorization_url()
+        reauth_entry = self._get_reauth_entry()
 
         if user_input is not None:
-            url = user_input["url"]
-            try:
-                await client.authenticate_with_code(url)
-                
-                if client._account_id:
-                     await self.async_set_unique_id(client._account_id)
-                     self._abort_if_unique_id_mismatch(reason="wrong_account")
-                
+            email = user_input[CONF_EMAIL].strip()
+            password = user_input[CONF_PASSWORD]
+            client, errors = await self._async_authenticate(email, password)
+
+            if client is not None:
+                if client.account_id:
+                    await self.async_set_unique_id(client.account_id)
+                    if reauth_entry.unique_id is not None:
+                        self._abort_if_unique_id_mismatch(reason="wrong_account")
+
                 return self.async_update_reload_and_abort(
-                     self._get_reauth_entry(),
-                     data={"refresh_token": client._refresh_token},
+                    reauth_entry,
+                    data={
+                        CONF_EMAIL: email,
+                        CONF_PASSWORD: password,
+                        CONF_REFRESH_TOKEN: client.refresh_token,
+                    },
                 )
-            except (BradfordWhiteConnectError, BradfordWhiteAuthError) as err:
-                 _LOGGER.error("Auth failed: %s", err)
-                 errors["base"] = "invalid_auth"
-            except Exception:
-                 _LOGGER.exception("Unexpected exception during auth")
-                 errors["base"] = "unknown"
-            finally:
-                 await client.close()
+
+        suggested_email = (
+            user_input.get(CONF_EMAIL)
+            if user_input is not None
+            else reauth_entry.data.get(CONF_EMAIL, "")
+        )
+        schema = self.add_suggested_values_to_schema(
+            STEP_USER_DATA_SCHEMA,
+            {CONF_EMAIL: suggested_email},
+        )
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=STEP_USER_DATA_Schema,
+            data_schema=schema,
             errors=errors,
-            description_placeholders={
-                "auth_url": auth_url
-            }
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration of stored Bradford White Wave credentials."""
+        errors: dict[str, str] = {}
+        reconfigure_entry = self._get_reconfigure_entry()
+
+        if user_input is not None:
+            email = user_input[CONF_EMAIL].strip()
+            password = user_input[CONF_PASSWORD]
+            client, errors = await self._async_authenticate(email, password)
+
+            if client is not None:
+                if client.account_id:
+                    await self.async_set_unique_id(client.account_id)
+                    if reconfigure_entry.unique_id is not None:
+                        self._abort_if_unique_id_mismatch(reason="wrong_account")
+
+                return self.async_update_reload_and_abort(
+                    reconfigure_entry,
+                    data={
+                        CONF_EMAIL: email,
+                        CONF_PASSWORD: password,
+                        CONF_REFRESH_TOKEN: client.refresh_token,
+                    },
+                )
+
+        suggested_email = (
+            user_input.get(CONF_EMAIL)
+            if user_input is not None
+            else reconfigure_entry.data.get(CONF_EMAIL, "")
+        )
+        schema = self.add_suggested_values_to_schema(
+            STEP_USER_DATA_SCHEMA,
+            {CONF_EMAIL: suggested_email},
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=schema,
+            errors=errors,
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -11,17 +12,16 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.entity import DeviceInfo
 
 from .const import DOMAIN
-from .coordinator import BradfordWhiteWaveEnergyCoordinator
+from .coordinator import ENABLED_ENERGY_VIEWS, BradfordWhiteWaveEnergyCoordinator
 from .entity import BradfordWhiteWaveEnergyEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-VIEW_TYPES = ["weekly", "monthly"]
-ENERGY_TYPES = ["total_energy", "heat_pump_energy", "element_energy"]
+ENERGY_TYPES: tuple[str, ...] = ("total_energy", "heat_pump_energy", "element_energy")
 
 
 async def async_setup_entry(
@@ -32,10 +32,8 @@ async def async_setup_entry(
     coordinator: BradfordWhiteWaveEnergyCoordinator = data.energy_coordinator
     status_coordinator = data.status_coordinator
 
-    entities = []
+    entities: list[BradfordWhiteWaveEnergySensor] = []
 
-    # Use status coordinator to get device info (friendly name etc)
-    # Energy coordinator keys should match.
     for mac, device in status_coordinator.data.items():
         device_info = DeviceInfo(
             identifiers={(DOMAIN, mac)},
@@ -45,16 +43,15 @@ async def async_setup_entry(
             serial_number=device.serial_number,
         )
 
-        for view_type in VIEW_TYPES:
+        for view_type in ENABLED_ENERGY_VIEWS:
             for energy_type in ENERGY_TYPES:
                 entities.append(
                     BradfordWhiteWaveEnergySensor(
                         coordinator,
                         mac,
                         device_info,
-                        view_type,
+                        view_type.value,
                         energy_type,
-                        device.friendly_name,
                     )
                 )
 
@@ -76,14 +73,12 @@ class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, SensorEntity)
         info: DeviceInfo,
         view_type: str,
         energy_type: str,
-        device_name: str,
     ) -> None:
         """Initialize."""
         super().__init__(coordinator, mac_address, info)
         self._view_type = view_type
         self._energy_type = energy_type
 
-        # Format name: "DeviceName Daily Total Energy"
         pretty_view = view_type.title()
         pretty_type = energy_type.replace("_", " ").title()
 
@@ -103,10 +98,7 @@ class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, SensorEntity)
         if not view_data:
             return None
 
-        # Latest data is returned first
         latest_usage = view_data[0]
-
-        # Get the field
         return getattr(latest_usage, self._energy_type, None)
 
     @callback
@@ -118,13 +110,10 @@ class BradfordWhiteWaveEnergySensor(BradfordWhiteWaveEnergyEntity, SensorEntity)
             if self._cached_value is None:
                 self._cached_value = raw
             elif raw < self._cached_value:
-                # This API sometimes returns a slightly lower value even in between resets,
-                # we will filter these out unless the drop is significant and likely to be a reset
+                # This API sometimes returns a slightly lower value even in between resets;
+                # filter these out unless the drop is significant and likely a period reset.
                 if raw < 0.1 or raw < self._cached_value * 0.5:
                     self._cached_value = raw
-                else:
-                    # Treat as jitter, ignore the drop (clamp to previous)
-                    pass
             else:
                 self._cached_value = raw
 

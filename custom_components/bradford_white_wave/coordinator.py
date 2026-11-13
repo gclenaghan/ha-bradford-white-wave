@@ -1,33 +1,41 @@
-"""The data update coordinator for the Bradford White Wave integration."""
+"""The data update coordinators for the Bradford White Wave integration."""
+
+from __future__ import annotations
 
 import datetime
 import logging
-from typing import Dict, Any
+from typing import Any
 
-from bradford_white_wave_client import (
-    BradfordWhiteClient,
-    BradfordWhiteConnectError,
-)
-from bradford_white_wave_client.models import DeviceStatus, EnergyUsage
-
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+
+from bradford_white_wave_client import (
+    BradfordWhiteAuthError,
+    BradfordWhiteClient,
+    BradfordWhiteConnectError,
+    DeviceStatus,
+    EnergyUsage,
+    EnergyViewType,
+)
 
 from .const import (
     DOMAIN,
-    REGULAR_INTERVAL,
-    FAST_INTERVAL,
     ENERGY_USAGE_INTERVAL,
+    FAST_INTERVAL,
+    REGULAR_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
+ENABLED_ENERGY_VIEWS: tuple[EnergyViewType, ...] = (
+    EnergyViewType.WEEKLY,
+    EnergyViewType.MONTHLY,
+)
 
-class BradfordWhiteWaveStatusCoordinator(
-    DataUpdateCoordinator[Dict[str, DeviceStatus]]
-):
+
+class BradfordWhiteWaveStatusCoordinator(DataUpdateCoordinator[dict[str, DeviceStatus]]):
     """Coordinator for device status, updating with a frequent interval."""
 
     def __init__(
@@ -35,63 +43,50 @@ class BradfordWhiteWaveStatusCoordinator(
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
-            hass, _LOGGER, name=f"{DOMAIN}_status", update_interval=REGULAR_INTERVAL
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_status",
+            update_interval=REGULAR_INTERVAL,
         )
         self.client = client
         self.entry = entry
-        self.shared_data: Dict[str, Any] = {}
+        self.shared_data: dict[str, Any] = {}
 
-    async def _async_update_data(self) -> Dict[str, DeviceStatus]:
+    async def _async_update_data(self) -> dict[str, DeviceStatus]:
         """Fetch latest data from the device status endpoint."""
         try:
-            # Check if we should use fast interval
             last_api_set = self.shared_data.get("last_api_set_datetime")
             if last_api_set:
                 if (datetime.datetime.now() - last_api_set) < REGULAR_INTERVAL:
                     if self.update_interval != FAST_INTERVAL:
                         _LOGGER.debug("Setting fast update interval")
                         self.update_interval = FAST_INTERVAL
-                else:
-                    if self.update_interval != REGULAR_INTERVAL:
-                        _LOGGER.debug("Setting regular update interval")
-                        self.update_interval = REGULAR_INTERVAL
-                        self.shared_data["last_api_set_datetime"] = None
+                elif self.update_interval != REGULAR_INTERVAL:
+                    _LOGGER.debug("Setting regular update interval")
+                    self.update_interval = REGULAR_INTERVAL
+                    self.shared_data["last_api_set_datetime"] = None
 
             devices = await self.client.list_devices()
 
-            device_map = {}
+            device_map: dict[str, DeviceStatus] = {}
             for device in devices:
                 detailed_device = await self.client.get_status(device.mac_address)
                 device_map[detailed_device.mac_address] = detailed_device
 
-            # Persist token if changed
-            if (
-                self.client.refresh_token
-                and self.client.refresh_token != self.entry.data.get("refresh_token")
-            ):
-                _LOGGER.debug("Persisting new refresh token")
-                self.hass.config_entries.async_update_entry(
-                    self.entry,
-                    data={
-                        **self.entry.data,
-                        "refresh_token": self.client.refresh_token,
-                    },
-                )
-
             return device_map
 
+        except BradfordWhiteAuthError as err:
+            raise ConfigEntryAuthFailed(
+                f"Authentication failed while updating status: {err}"
+            ) from err
         except BradfordWhiteConnectError as err:
-            # We can try to differentiate auth errors if possible,
-            # but generic error handling is safer for now.
-            if "401" in str(err) or "Access denied" in str(err):
-                raise ConfigEntryAuthFailed from err
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         except Exception as err:
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
 
 class BradfordWhiteWaveEnergyCoordinator(
-    DataUpdateCoordinator[Dict[str, Dict[str, list[EnergyUsage]]]]
+    DataUpdateCoordinator[dict[str, dict[str, list[EnergyUsage]]]]
 ):
     """Coordinator for energy usage data."""
 
@@ -111,42 +106,26 @@ class BradfordWhiteWaveEnergyCoordinator(
         self.client = client
         self.entry = entry
 
-    async def _async_update_data(self) -> Dict[str, Dict[str, list[EnergyUsage]]]:
+    async def _async_update_data(self) -> dict[str, dict[str, list[EnergyUsage]]]:
         """Fetch latest energy data."""
-        # Structure: data[mac][view_type] = List[EnergyUsage]
-        data: Dict[str, Dict[str, list[EnergyUsage]]] = {}
+        data: dict[str, dict[str, list[EnergyUsage]]] = {}
 
         try:
             devices = await self.client.list_devices()
 
             for device in devices:
-                device_data = {}
-                # We want 2 views: weekly, monthly
-                for view_type in ["weekly", "monthly"]:
-                    usage = await self.client.get_energy_usage(
-                        device.mac_address, view_type
-                    )
-                    device_data[view_type] = usage
+                device_data: dict[str, list[EnergyUsage]] = {}
+                for view_type in ENABLED_ENERGY_VIEWS:
+                    usage = await self.client.get_energy_usage(device.mac_address, view_type)
+                    device_data[view_type.value] = usage
 
                 data[device.mac_address] = device_data
 
-            # Persist token if changed
-            if (
-                self.client.refresh_token
-                and self.client.refresh_token != self.entry.data.get("refresh_token")
-            ):
-                _LOGGER.debug("Persisting new refresh token (energy)")
-                self.hass.config_entries.async_update_entry(
-                    self.entry,
-                    data={
-                        **self.entry.data,
-                        "refresh_token": self.client.refresh_token,
-                    },
-                )
-
+        except BradfordWhiteAuthError as err:
+            raise ConfigEntryAuthFailed(
+                f"Authentication failed while updating energy usage: {err}"
+            ) from err
         except BradfordWhiteConnectError as err:
-            if "401" in str(err):
-                raise ConfigEntryAuthFailed from err
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         except Exception as err:
             raise UpdateFailed(f"Unexpected error: {err}") from err

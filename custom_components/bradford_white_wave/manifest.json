@@ -1,14 +1,16 @@
 {
     "domain": "bradford_white_wave",
     "name": "Bradford White Wave",
-    "codeowners": [],
+    "codeowners": [
+        "@gclenaghan"
+    ],
     "config_flow": true,
     "dependencies": [],
     "documentation": "https://github.com/gclenaghan/ha-bradford-white-wave",
     "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/gclenaghan/ha-bradford-white-wave/issues",
     "requirements": [
-        "bradford-white-wave-client>=0.1.2"
+        "bradford-white-wave-client>=1.0.0"
     ],
-    "version": "1.0.3"
+    "version": "1.1.0b1"
 }

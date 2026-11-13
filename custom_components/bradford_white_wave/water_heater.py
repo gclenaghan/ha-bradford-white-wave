@@ -3,21 +3,28 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from collections.abc import Awaitable, Callable
 from datetime import datetime
+from typing import Any
 
-from bradford_white_wave_client.models import BradfordWhiteMode
 from homeassistant.components.water_heater import (
     WaterHeaterEntity,
     WaterHeaterEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature, PRECISION_WHOLE
+from homeassistant.const import PRECISION_WHOLE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.entity import DeviceInfo
 
-from .const import DOMAIN, MODE_HA_TO_BW, MODE_BW_TO_HA
+from bradford_white_wave_client import (
+    BradfordWhiteAuthError,
+    BradfordWhiteConnectError,
+    BradfordWhiteMode,
+)
+
+from .const import DOMAIN, MODE_BW_TO_HA, MODE_HA_TO_BW
 from .coordinator import BradfordWhiteWaveStatusCoordinator
 from .entity import BradfordWhiteWaveStatusEntity
 
@@ -31,21 +38,18 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator: BradfordWhiteWaveStatusCoordinator = data.status_coordinator
 
-    entities = []
-    
-    # Coordinator data is Dict[mac, DeviceStatus]
+    entities: list[BradfordWhiteWaveWaterHeater] = []
+
     for mac, device in coordinator.data.items():
         device_info = DeviceInfo(
             identifiers={(DOMAIN, mac)},
             name=device.friendly_name,
             manufacturer="Bradford White",
-            model=device.appliance_type, # Or derive from serial if needed
+            model=device.appliance_type,
             serial_number=device.serial_number,
         )
-        
-        entities.append(
-            BradfordWhiteWaveWaterHeater(coordinator, mac, device_info)
-        )
+
+        entities.append(BradfordWhiteWaveWaterHeater(coordinator, mac, device_info))
 
     async_add_entities(entities)
 
@@ -61,11 +65,16 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
         | WaterHeaterEntityFeature.AWAY_MODE
     )
 
-    def __init__(self, coordinator: BradfordWhiteWaveStatusCoordinator, mac_address: str, info: DeviceInfo):
+    def __init__(
+        self,
+        coordinator: BradfordWhiteWaveStatusCoordinator,
+        mac_address: str,
+        info: DeviceInfo,
+    ) -> None:
         """Initialize."""
         super().__init__(coordinator, mac_address, info)
         self._attr_unique_id = mac_address
-        self._attr_name = None # Use device name
+        self._attr_name = None
 
     @property
     def target_temperature(self) -> float | None:
@@ -86,59 +95,64 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
 
     @property
     def current_operation(self) -> str | None:
-        """Return current operation ie. heat, cool, idle."""
-        if not self.device:
+        """Return current operation mode."""
+        if not self.device or self.device.heating_mode is None:
             return None
-        
-        # device.heat_mode_value is int
-        if self.device.heat_mode_value is not None:
-             # Look up IntEnum from value
-             try:
-                 mode_enum = BradfordWhiteMode(self.device.heat_mode_value)
-                 return MODE_BW_TO_HA.get(mode_enum)
-             except ValueError:
-                 return None
-        return None
+        return MODE_BW_TO_HA.get(self.device.heating_mode)
 
     @property
     def operation_list(self) -> list[str]:
         """List of available operation modes."""
-        # Assume all modes supported for now
         return list(MODE_HA_TO_BW.keys())
+
+    async def _async_execute_control(self, action: Callable[[], Awaitable[Any]]) -> None:
+        """Execute a write action, trigger fast polling, and wrap client errors."""
+        try:
+            await action()
+        except BradfordWhiteAuthError as err:
+            self.coordinator.entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(
+                f"Authentication failed while controlling water heater: {err}"
+            ) from err
+        except BradfordWhiteConnectError as err:
+            raise HomeAssistantError(
+                f"Failed to communicate with Bradford White Wave: {err}"
+            ) from err
+
+        self.coordinator.shared_data["last_api_set_datetime"] = datetime.now()
+        await self.coordinator.async_request_refresh()
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
         temp = kwargs.get("temperature")
         if temp is not None:
-             await self.coordinator.client.set_temperature(self.mac_address, int(temp))
-             self.coordinator.shared_data["last_api_set_datetime"] = datetime.now()
-             await self.coordinator.async_request_refresh()
+            await self._async_execute_control(
+                lambda: self.coordinator.client.set_temperature(self.mac_address, int(temp))
+            )
 
     async def async_set_operation_mode(self, operation_mode: str) -> None:
         """Set new target operation mode."""
         bw_mode = MODE_HA_TO_BW.get(operation_mode)
-        if bw_mode:
-            await self.coordinator.client.set_mode(self.mac_address, bw_mode)
-            self.coordinator.shared_data["last_api_set_datetime"] = datetime.now()
-            await self.coordinator.async_request_refresh()
+        if bw_mode is not None:
+            await self._async_execute_control(
+                lambda: self.coordinator.client.set_mode(self.mac_address, bw_mode)
+            )
 
     @property
     def is_away_mode_on(self) -> bool | None:
         """Return true if away mode is on."""
         if not self.device:
             return None
-        return self.device.heat_mode_value == BradfordWhiteMode.VACATION
+        return self.device.heating_mode is BradfordWhiteMode.VACATION
 
     async def async_turn_away_mode_on(self) -> None:
         """Turn away mode on."""
-        await self.coordinator.client.set_mode(self.mac_address, BradfordWhiteMode.VACATION)
-        self.coordinator.shared_data["last_api_set_datetime"] = datetime.now()
-        await self.coordinator.async_request_refresh()
+        await self._async_execute_control(
+            lambda: self.coordinator.client.set_mode(self.mac_address, BradfordWhiteMode.VACATION)
+        )
 
     async def async_turn_away_mode_off(self) -> None:
         """Turn away mode off."""
-        # Default to standard Hybrid or whatever is reasonable. 
-        # Or HeatPump which is efficient.
-        await self.coordinator.client.set_mode(self.mac_address, BradfordWhiteMode.HEAT_PUMP)
-        self.coordinator.shared_data["last_api_set_datetime"] = datetime.now()
-        await self.coordinator.async_request_refresh()
+        await self._async_execute_control(
+            lambda: self.coordinator.client.set_mode(self.mac_address, BradfordWhiteMode.HEAT_PUMP)
+        )

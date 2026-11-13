@@ -1,6 +1,6 @@
 # Bradford White Wave Home Assistant Integration
 
-This integration provides support for [Bradford White Water Heaters](https://www.bradfordwhite.com/) that use the "Wave" platform (e.g. Aerotherm G2).
+This integration provides support for [Bradford White Water Heaters](https://www.bradfordwhite.com/) that use the "Wave" platform (e.g. AeroTherm G2).
 
 Older models use the "Connect" platform and are supported by the [bradford-white-connect](https://github.com/ablyler/home-assistant-bradford-white-connect) integration, which this integration is based on.
 
@@ -10,23 +10,18 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 - Control Setpoint Temperature
 - Sensor for current Operation Mode
 - Energy Usage Sensors (Total, Heat Pump, Element) broken down by:
-  - Hourly
-  - Daily
   - Weekly
   - Monthly
 
 ## Installation
 
-### HACS (Recommended)
+### Marketplace / HACS (Recommended)
 
-1. Open HACS in Home Assistant.
-2. Go to "Integrations".
-3. Click the three dots in the top right and select "Custom repositories".
-4. Add the URL of this repository.
-5. Select "Integration" as the category.
-6. Click "Add".
-7. Find "Bradford White Wave" in the list and click "Download".
-8. Restart Home Assistant.
+1. Open **Settings -> Marketplace** (or **HACS** on Home Assistant < 2026.11).
+2. Click the three dots in the top right and select **Custom repositories**.
+3. Add `https://github.com/gclenaghan/ha-bradford-white-wave` with category **Integration**, then click **Add**.
+4. Find **Bradford White Wave** and click **Download** / **Install**.
+5. Restart Home Assistant.
 
 ### Manual
 
@@ -35,25 +30,10 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 
 ## Configuration
 
-1. Go to Settings -> Devices & Services.
-2. Click "+ ADD INTEGRATION".
-3. Search for "Bradford White Wave".
-4. Follow the configuration steps.
-
-### Authentication
-
-The authentication process requires a few manual steps because the relevant Redirect URI is a custom scheme (`com.bradfordwhiteapps.bwconnect://`) which cannot be automatically captured by Home Assistant easily.
-
-1. The Config Flow will give you a link to the Bradford White login page. Click it.
-2. Log in with your credentials.
-3. You will eventually be redirected and hit a page that fails to load (because your browser doesn't know how to handle the `com.bradfordwhiteapps.bwconnect://` scheme).
-4. Open your browser's Developer Tools (F12) and go to the "Network" tab.
-5. Refresh the page if necessary to see the requests.
-6. Look for the request that failed or has the `com.bradfordwhiteapps.bwconnect://` scheme. You need the **full URL** from the `Location` header or the request URL itself.
-
-   ![Redirect Example](redirect_example.png)
-
-7. Copy that full URL (starting with `com.bradfordwhiteapps.bwconnect://...`) and paste it back into the Home Assistant dialog.
+1. Go to **Settings -> Devices & Services**.
+2. Click **+ ADD INTEGRATION**.
+3. Search for **Bradford White Wave**.
+4. Enter your Bradford White Wave email address and password.
 
 ## Entities
 
@@ -71,10 +51,9 @@ The authentication process requires a few manual steps because the relevant Redi
 - `sensor.device_name_energy_weekly_heat_pump`: Weekly heat pump energy (kWh)
 - `sensor.device_name_energy_weekly_element`: Weekly element energy (kWh)
 
-Hourly and daily sensors are not currently supported since I found them to be unreliable in testing.
+Hourly and daily sensors are not currently enabled since they were found to be unreliable in testing.
 
 ## Disclaimer
 
-- This is an unofficial library and is not affiliated with Bradford White.
-- I have only tested with an Aerotherm G2.
-- This is largely written in "collaboration" with Gemini, though I have manually reviewed the code and verified the flows.
+- This is an unofficial integration and is not affiliated with Bradford White.
+- Tested with an AeroTherm G2.

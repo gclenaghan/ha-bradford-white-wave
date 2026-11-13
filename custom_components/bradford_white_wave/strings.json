@@ -2,26 +2,39 @@
     "config": {
         "step": {
             "user": {
-                "title": "Bradford White Wave Authentication",
-                "description": "Please authenticate with Bradford White to allow Home Assistant to access your water heater.\n\n1. Click [here]({auth_url}) to open the login page.\n2. Log in with your Bradford White account.\n3. After logging in, you will need to retrieve a redirect URL from the browser's developer tools network tab, see [Authentication Guide](https://github.com/gclenaghan/bradford-white-wave-client?tab=readme-ov-file#authentication). (it should start with `com.bradfordwhiteapps.bwconnect://`).\n4. Paste the URL below.",
+                "title": "Bradford White Wave",
+                "description": "Enter your Bradford White Wave account credentials.",
                 "data": {
-                    "url": "Redirect URL"
+                    "email": "Email",
+                    "password": "Password"
                 }
             },
             "reauth_confirm": {
-                "title": "Reauthenticate Integration",
-                "description": "Please reauthenticate with your Bradford White account to update your credentials.\n\n1. Click [here]({auth_url}) to open the login page.\n2. Log in with your Bradford White account.\n3. After logging in, retrieve the redirect URL starting with `com.bradfordwhiteapps.bwconnect://` and paste it below.",
+                "title": "Reauthenticate Bradford White Wave",
+                "description": "Please enter your updated Bradford White Wave credentials.",
                 "data": {
-                    "url": "Redirect URL"
+                    "email": "Email",
+                    "password": "Password"
+                }
+            },
+            "reconfigure": {
+                "title": "Reconfigure Bradford White Wave",
+                "description": "Update your Bradford White Wave account credentials.",
+                "data": {
+                    "email": "Email",
+                    "password": "Password"
                 }
             }
         },
         "error": {
-            "invalid_auth": "Invalid authentication received.",
+            "cannot_connect": "Failed to connect to Bradford White.",
+            "invalid_auth": "Invalid email or password.",
             "unknown": "Unexpected error."
         },
         "abort": {
             "already_configured": "Account is already configured",
+            "reauth_successful": "Re-authentication was successful",
+            "reconfigure_successful": "Configuration updated successfully",
             "wrong_account": "You must authenticate with the same Bradford White account."
         }
     }

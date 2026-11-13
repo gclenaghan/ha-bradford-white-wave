@@ -5,14 +5,22 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from bradford_white_wave_client import BradfordWhiteClient
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from .const import DOMAIN
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from bradford_white_wave_client import (
+    BradfordWhiteAuthError,
+    BradfordWhiteClient,
+    BradfordWhiteConnectError,
+)
+
+from .const import CONF_REFRESH_TOKEN, DOMAIN
 from .coordinator import (
-    BradfordWhiteWaveStatusCoordinator,
     BradfordWhiteWaveEnergyCoordinator,
+    BradfordWhiteWaveStatusCoordinator,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,23 +39,41 @@ class BradfordWhiteWaveData:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Bradford White Wave from a config entry."""
+    refresh_token = entry.data.get(CONF_REFRESH_TOKEN)
+    email = entry.data.get(CONF_EMAIL)
+    password = entry.data.get(CONF_PASSWORD)
 
-    refresh_token = entry.data["refresh_token"]
+    @callback
+    def _async_persist_refresh_token(new_refresh_token: str) -> None:
+        """Persist rotated refresh tokens to the config entry."""
+        if entry.data.get(CONF_REFRESH_TOKEN) != new_refresh_token:
+            _LOGGER.debug("Persisting updated refresh token to config entry")
+            hass.config_entries.async_update_entry(
+                entry,
+                data={**entry.data, CONF_REFRESH_TOKEN: new_refresh_token},
+            )
 
-    client = BradfordWhiteClient(refresh_token)
+    client = BradfordWhiteClient(
+        refresh_token=refresh_token,
+        email=email,
+        password=password,
+        session=async_get_clientsession(hass),
+        on_token_update=_async_persist_refresh_token,
+    )
     try:
         await client.authenticate()
-        # Persist token if changed during initial auth
-        if client.refresh_token and client.refresh_token != entry.data.get(
-            "refresh_token"
-        ):
-            _LOGGER.info("Refresh token updated during init, saving to config entry.")
-            hass.config_entries.async_update_entry(
-                entry, data={**entry.data, "refresh_token": client.refresh_token}
-            )
+    except BradfordWhiteAuthError as ex:
+        await client.close()
+        raise ConfigEntryAuthFailed(f"Authentication failed with Bradford White Wave: {ex}") from ex
+    except BradfordWhiteConnectError as ex:
+        await client.close()
+        raise ConfigEntryNotReady(f"Failed to connect to Bradford White Wave: {ex}") from ex
     except Exception as ex:
-        _LOGGER.error("Failed to authenticate with Bradford White Wave: %s", ex)
-        raise
+        await client.close()
+        _LOGGER.exception("Unexpected error authenticating with Bradford White Wave")
+        raise ConfigEntryNotReady(
+            f"Unexpected error connecting to Bradford White Wave: {ex}"
+        ) from ex
 
     status_coordinator = BradfordWhiteWaveStatusCoordinator(hass, client, entry)
     energy_coordinator = BradfordWhiteWaveEnergyCoordinator(hass, client, entry)
