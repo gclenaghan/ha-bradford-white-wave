@@ -1,6 +1,9 @@
 {
     "domain": "bradford_white_wave",
     "name": "Bradford White Wave",
+    "categories": [
+        "climate.water_heaters"
+    ],
     "codeowners": [
         "@gclenaghan"
     ],
