@@ -16,7 +16,7 @@ from homeassistant.components.water_heater import (
     WaterHeaterEntityFeature,
 )
 from homeassistant.const import ATTR_TEMPERATURE, PRECISION_WHOLE, UnitOfTemperature
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -56,9 +56,7 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
     _attr_min_temp = 100.0
     _attr_max_temp = 140.0
     _attr_supported_features = (
-        WaterHeaterEntityFeature.TARGET_TEMPERATURE
-        | WaterHeaterEntityFeature.OPERATION_MODE
-        | WaterHeaterEntityFeature.AWAY_MODE
+        WaterHeaterEntityFeature.TARGET_TEMPERATURE | WaterHeaterEntityFeature.OPERATION_MODE
     )
 
     def __init__(
@@ -70,24 +68,6 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
         """Initialize."""
         super().__init__(coordinator, mac_address, info)
         self._attr_unique_id = mac_address
-        self._last_non_vacation_mode: BradfordWhiteMode = BradfordWhiteMode.HYBRID
-        self._record_non_vacation_mode()
-
-    @callback
-    def _record_non_vacation_mode(self) -> None:
-        """Remember the most recent active mode so away-mode off can restore it."""
-        if (
-            self.device is not None
-            and self.device.heating_mode is not None
-            and self.device.heating_mode is not BradfordWhiteMode.VACATION
-        ):
-            self._last_non_vacation_mode = self.device.heating_mode
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Track active non-vacation mode across coordinator updates."""
-        self._record_non_vacation_mode()
-        super()._handle_coordinator_update()
 
     @property
     def native_target_temperature(self) -> float | None:
@@ -126,9 +106,6 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
 
     async def _async_set_bw_mode(self, bw_mode: BradfordWhiteMode) -> None:
         """Send a mode change to the API and apply optimistic state."""
-        if bw_mode is not BradfordWhiteMode.VACATION:
-            self._last_non_vacation_mode = bw_mode
-
         response = await self._async_execute_control(
             lambda: self.coordinator.client.set_mode(self.mac_address, bw_mode)
         )
@@ -138,9 +115,6 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
                 applied_mode = BradfordWhiteMode(response.actual_mode)
             except ValueError:
                 applied_mode = bw_mode
-
-        if applied_mode is not BradfordWhiteMode.VACATION:
-            self._last_non_vacation_mode = applied_mode
 
         self.coordinator.apply_optimistic_mode(self.mac_address, applied_mode)
 
@@ -172,19 +146,3 @@ class BradfordWhiteWaveWaterHeater(BradfordWhiteWaveStatusEntity, WaterHeaterEnt
             raise ServiceValidationError(f"Unsupported operation mode: {operation_mode}")
 
         await self._async_set_bw_mode(bw_mode)
-
-    @property
-    def is_away_mode_on(self) -> bool | None:
-        """Return true if away mode is on."""
-        if not self.device:
-            return None
-        return self.device.heating_mode is BradfordWhiteMode.VACATION
-
-    async def async_turn_away_mode_on(self) -> None:
-        """Turn away mode on."""
-        self._record_non_vacation_mode()
-        await self._async_set_bw_mode(BradfordWhiteMode.VACATION)
-
-    async def async_turn_away_mode_off(self) -> None:
-        """Turn away mode off, restoring the prior active mode."""
-        await self._async_set_bw_mode(self._last_non_vacation_mode)

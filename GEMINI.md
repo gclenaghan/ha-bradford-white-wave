@@ -22,7 +22,7 @@ This project is a Home Assistant integration for Bradford White water heaters us
 ### Water Heater & Select Entities
 
 - **Current Temperature**: The API **does not** report the current tank temperature in the standard status payload. `current_temperature` is omitted intentionally; target temperature uses HA 2026.11+ `native_target_temperature` and `_attr_native_temperature_unit`.
-- **Controls**: `water_heater` supports Setpoint (100-140°F), Away Mode (restoring the previous active mode), and HA standard modes; `select` exposes exact Bradford White modes (`Hybrid`, `Hybrid Plus`, `Heat Pump`, `Electric`, `Vacation`).
+- **Controls**: `water_heater` supports Setpoint (100-140°F) and HA standard modes; `select` exposes exact Bradford White modes (`Hybrid`, `Hybrid Plus`, `Heat Pump`, `Electric`, `Vacation`).
 - **Polling**: Default is 60s. Switches to "Fast Interval" (10s) with optimistic state updates immediately after a control action to verify changes quickly without UI bounce.
 
 ### Energy Sensors

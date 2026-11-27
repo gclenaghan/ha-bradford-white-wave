@@ -43,7 +43,7 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 
 ### Water Heater
 
-- `water_heater.<device_name>`: Standard Home Assistant water heater controls for mode (`eco`, `high_demand`, `heat_pump`, `electric`, `off`), away mode, and target temperature.
+- `water_heater.<device_name>`: Standard Home Assistant water heater controls for mode (`eco`, `high_demand`, `heat_pump`, `electric`, `off`) and target temperature.
   - **Note**: The API does _not_ report the current tank temperature, so the entity will not show a current temperature value.
 
 ### Select

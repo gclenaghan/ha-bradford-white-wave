@@ -15,6 +15,7 @@ from bradford_white_wave_client import (
     WriteResponse,
 )
 from homeassistant.components.sensor import RestoredSensorData
+from homeassistant.components.water_heater import WaterHeaterEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
@@ -71,6 +72,10 @@ def test_manifest_hacs_translations_and_icons_sync() -> None:
     assert keys[:2] == ["domain", "name"]
     assert keys[2:] == sorted(keys[2:])
 
+    license_text = (REPO_ROOT / "LICENSE").read_text()
+    assert "Copyright (c) 2023 Andy Blyler" in license_text
+    assert "Copyright (c) 2025 Graham Clenaghan" in license_text
+
     hacs = json.loads((REPO_ROOT / "hacs.json").read_text())
     assert hacs["homeassistant"] == "2026.11.0"
 
@@ -101,7 +106,7 @@ async def test_water_heater_and_select_entities_stay_synchronized(
     sample_summary_device: DeviceStatus,
     sample_detailed_device: DeviceStatus,
 ) -> None:
-    """Test native 2026.11 properties, bounds validation, away-mode memory, and select sync."""
+    """Test native 2026.11 properties, bounds validation, and mode/select synchronization."""
     hass = MagicMock()
     entry = ConfigEntry()
     client = MagicMock()
@@ -126,12 +131,15 @@ async def test_water_heater_and_select_entities_stay_synchronized(
     await wh.async_added_to_hass()
     await mode_select.async_added_to_hass()
 
-    # Verify legacy HA <2026.11 attributes are not defined on BradfordWhiteWaveWaterHeater
+    # Verify legacy HA <2026.11 attributes and AWAY_MODE are not enabled
     assert not hasattr(BradfordWhiteWaveWaterHeater, "_attr_temperature_unit")
     assert "target_temperature" not in BradfordWhiteWaveWaterHeater.__dict__
+    assert wh._attr_supported_features == (
+        WaterHeaterEntityFeature.TARGET_TEMPERATURE | WaterHeaterEntityFeature.OPERATION_MODE
+    )
+    assert not (wh._attr_supported_features & WaterHeaterEntityFeature.AWAY_MODE)
     assert wh.native_target_temperature == 120.0
     assert wh.current_operation == "eco"  # HYBRID
-    assert wh.is_away_mode_on is False
     assert mode_select.current_option == "hybrid"
 
     # Bounds validation rejects out-of-range temperatures before calling API
@@ -146,20 +154,19 @@ async def test_water_heater_and_select_entities_stay_synchronized(
     client.set_temperature.assert_awaited_once_with(mac, 128)
     assert wh.native_target_temperature == 128.0
 
-    # Changing mode via SelectEntity updates both SelectEntity and WaterHeaterEntity + away memory!
+    # Changing mode via SelectEntity updates both SelectEntity and WaterHeaterEntity
     await mode_select.async_select_option("hybrid_plus")
     assert mode_select.current_option == "hybrid_plus"
     assert wh.current_operation == "high_demand"
 
-    # Turning away mode on switches to VACATION; turning away mode off restores HYBRID_PLUS!
-    await wh.async_turn_away_mode_on()
-    assert wh.is_away_mode_on is True
+    # Changing mode via WaterHeaterEntity (including off <-> vacation) syncs back to SelectEntity
+    await wh.async_set_operation_mode("off")
+    assert wh.current_operation == "off"
     assert mode_select.current_option == "vacation"
 
-    await wh.async_turn_away_mode_off()
-    assert wh.is_away_mode_on is False
-    assert wh.current_operation == "high_demand"
-    assert mode_select.current_option == "hybrid_plus"
+    await wh.async_set_operation_mode("heat_pump")
+    assert wh.current_operation == "heat_pump"
+    assert mode_select.current_option == "heat_pump"
 
     # Invalid mode options raise ServiceValidationError
     with pytest.raises(ServiceValidationError):
