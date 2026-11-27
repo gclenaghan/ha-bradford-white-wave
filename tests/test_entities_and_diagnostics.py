@@ -28,15 +28,6 @@ from custom_components.bradford_white_wave.diagnostics import (
     async_get_config_entry_diagnostics,
 )
 from custom_components.bradford_white_wave.entity import build_device_info
-from custom_components.bradford_white_wave.select import (
-    PARALLEL_UPDATES as SELECT_PARALLEL_UPDATES,
-)
-from custom_components.bradford_white_wave.select import (
-    BradfordWhiteWaveModeSelect,
-)
-from custom_components.bradford_white_wave.select import (
-    async_setup_entry as async_setup_select_entry,
-)
 from custom_components.bradford_white_wave.sensor import (
     PARALLEL_UPDATES as SENSOR_PARALLEL_UPDATES,
 )
@@ -98,15 +89,14 @@ def test_manifest_hacs_translations_and_icons_sync() -> None:
 def test_parallel_updates_constants() -> None:
     """Ensure action platforms serialize writes while read-only sensors do not."""
     assert WH_PARALLEL_UPDATES == 1
-    assert SELECT_PARALLEL_UPDATES == 1
     assert SENSOR_PARALLEL_UPDATES == 0
 
 
-async def test_water_heater_and_select_entities_stay_synchronized(
+async def test_water_heater_entity_controls_and_validation(
     sample_summary_device: DeviceStatus,
     sample_detailed_device: DeviceStatus,
 ) -> None:
-    """Test native 2026.11 properties, bounds validation, and mode/select synchronization."""
+    """Test native 2026.11 properties, bounds validation, and standard HA mode mapping."""
     hass = MagicMock()
     entry = ConfigEntry()
     client = MagicMock()
@@ -127,9 +117,7 @@ async def test_water_heater_and_select_entities_stay_synchronized(
     assert info["model"] == "AeroTherm G2"
 
     wh = BradfordWhiteWaveWaterHeater(status_coord, mac, info)
-    mode_select = BradfordWhiteWaveModeSelect(status_coord, mac, info)
     await wh.async_added_to_hass()
-    await mode_select.async_added_to_hass()
 
     # Verify legacy HA <2026.11 attributes and AWAY_MODE are not enabled
     assert not hasattr(BradfordWhiteWaveWaterHeater, "_attr_temperature_unit")
@@ -140,7 +128,7 @@ async def test_water_heater_and_select_entities_stay_synchronized(
     assert not (wh._attr_supported_features & WaterHeaterEntityFeature.AWAY_MODE)
     assert wh.native_target_temperature == 120.0
     assert wh.current_operation == "eco"  # HYBRID
-    assert mode_select.current_option == "hybrid"
+    assert wh.operation_list == ["eco", "electric", "heat_pump", "high_demand", "off"]
 
     # Bounds validation rejects out-of-range temperatures before calling API
     with pytest.raises(ServiceValidationError):
@@ -154,30 +142,19 @@ async def test_water_heater_and_select_entities_stay_synchronized(
     client.set_temperature.assert_awaited_once_with(mac, 128)
     assert wh.native_target_temperature == 128.0
 
-    # Changing mode via SelectEntity updates both SelectEntity and WaterHeaterEntity
-    await mode_select.async_select_option("hybrid_plus")
-    assert mode_select.current_option == "hybrid_plus"
-    assert wh.current_operation == "high_demand"
-
-    # Changing mode via WaterHeaterEntity (including off <-> vacation) syncs back to SelectEntity
-    await wh.async_set_operation_mode("off")
-    assert wh.current_operation == "off"
-    assert mode_select.current_option == "vacation"
-
-    await wh.async_set_operation_mode("heat_pump")
-    assert wh.current_operation == "heat_pump"
-    assert mode_select.current_option == "heat_pump"
+    # Standard HA operation modes map cleanly to Bradford White modes and back
+    for ha_mode in ("high_demand", "off", "heat_pump", "electric", "eco"):
+        await wh.async_set_operation_mode(ha_mode)
+        assert wh.current_operation == ha_mode
 
     # Invalid mode options raise ServiceValidationError
     with pytest.raises(ServiceValidationError):
         await wh.async_set_operation_mode("invalid")
-    with pytest.raises(ServiceValidationError):
-        await mode_select.async_select_option("invalid")
 
     # Auth and connect errors wrap into HomeAssistantError (triggering reauth on auth error)
     client.set_mode = AsyncMock(side_effect=BradfordWhiteAuthError("expired"))
     with pytest.raises(HomeAssistantError):
-        await mode_select.async_select_option("heat_pump")
+        await wh.async_set_operation_mode("heat_pump")
     entry.async_start_reauth.assert_called_once_with(hass)
 
     client.set_mode = AsyncMock(side_effect=BradfordWhiteConnectError("timeout"))
@@ -295,7 +272,7 @@ async def test_platform_setup_entrypoints_register_expected_entities(
     sample_detailed_device: DeviceStatus,
     sample_energy_point: EnergyUsage,
 ) -> None:
-    """Verify water_heater, select, and sensor async_setup_entry wire runtime_data."""
+    """Verify water_heater and sensor async_setup_entry wire runtime_data."""
     hass = MagicMock()
     entry = ConfigEntry()
     client = MagicMock()
@@ -310,16 +287,12 @@ async def test_platform_setup_entrypoints_register_expected_entities(
     entry.runtime_data = BradfordWhiteWaveData(client, status_coord, energy_coord)
 
     added_wh: list[BradfordWhiteWaveWaterHeater] = []
-    added_select: list[BradfordWhiteWaveModeSelect] = []
     added_sensors: list[BradfordWhiteWaveEnergySensor] = []
 
     await async_setup_water_heater_entry(hass, entry, added_wh.extend)
-    await async_setup_select_entry(hass, entry, added_select.extend)
     await async_setup_sensor_entry(hass, entry, added_sensors.extend)
 
     assert len(added_wh) == 1
-    assert len(added_select) == 1
     assert len(added_sensors) == 6
     assert added_wh[0].device_info["model"] == "AeroTherm G2"
-    assert added_select[0].device_info["model"] == "AeroTherm G2"
     assert added_sensors[0].device_info["model"] == "AeroTherm G2"

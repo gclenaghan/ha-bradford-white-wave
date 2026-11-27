@@ -41,11 +41,11 @@ def _install_homeassistant_stubs() -> None:
     ha_aiohttp = types.ModuleType("homeassistant.helpers.aiohttp_client")
     ha_dr = types.ModuleType("homeassistant.helpers.device_registry")
     ha_ep = types.ModuleType("homeassistant.helpers.entity_platform")
+    ha_er = types.ModuleType("homeassistant.helpers.entity_registry")
     ha_sel = types.ModuleType("homeassistant.helpers.selector")
     ha_uc = types.ModuleType("homeassistant.helpers.update_coordinator")
     ha_comp = types.ModuleType("homeassistant.components")
     ha_diag = types.ModuleType("homeassistant.components.diagnostics")
-    ha_select = types.ModuleType("homeassistant.components.select")
     ha_sensor = types.ModuleType("homeassistant.components.sensor")
     ha_wh = types.ModuleType("homeassistant.components.water_heater")
 
@@ -192,6 +192,43 @@ def _install_homeassistant_stubs() -> None:
     ha_dr.DeviceInfo = dict
     ha_ep.AddEntitiesCallback = object
 
+    @dataclass
+    class StubRegistryEntry:
+        entity_id: str
+        domain: str
+        config_entry_id: str
+
+    class StubEntityRegistry:
+        def __init__(self) -> None:
+            self.entries: dict[str, StubRegistryEntry] = {}
+            self.removed: list[str] = []
+
+        def async_remove(self, entity_id: str) -> None:
+            self.removed.append(entity_id)
+            self.entries.pop(entity_id, None)
+
+    def _async_get_entity_registry(hass: Any) -> StubEntityRegistry:
+        reg = getattr(hass, "_entity_registry", None)
+        if not isinstance(reg, StubEntityRegistry):
+            reg = StubEntityRegistry()
+            hass._entity_registry = reg
+        return reg
+
+    def _async_entries_for_config_entry(
+        registry: StubEntityRegistry, config_entry_id: str
+    ) -> list[StubRegistryEntry]:
+        return [
+            entry
+            for entry in list(registry.entries.values())
+            if entry.config_entry_id == config_entry_id
+        ]
+
+    ha_er.RegistryEntry = StubRegistryEntry
+    ha_er.EntityRegistry = StubEntityRegistry
+    ha_er.async_get = _async_get_entity_registry
+    ha_er.async_entries_for_config_entry = _async_entries_for_config_entry
+    ha_helpers.entity_registry = ha_er
+
     class TextSelectorType:
         EMAIL = "email"
         PASSWORD = "password"
@@ -306,18 +343,6 @@ def _install_homeassistant_stubs() -> None:
     ha_diag.REDACTED = REDACTED
     ha_diag.async_redact_data = async_redact_data
 
-    class SelectEntity:
-        _attr_options: list[str]
-
-        @property
-        def options(self) -> list[str]:
-            return self._attr_options
-
-        async def async_added_to_hass(self) -> None:
-            pass
-
-    ha_select.SelectEntity = SelectEntity
-
     @dataclass
     class RestoredSensorData:
         native_value: Any
@@ -364,11 +389,11 @@ def _install_homeassistant_stubs() -> None:
         "homeassistant.helpers.aiohttp_client": ha_aiohttp,
         "homeassistant.helpers.device_registry": ha_dr,
         "homeassistant.helpers.entity_platform": ha_ep,
+        "homeassistant.helpers.entity_registry": ha_er,
         "homeassistant.helpers.selector": ha_sel,
         "homeassistant.helpers.update_coordinator": ha_uc,
         "homeassistant.components": ha_comp,
         "homeassistant.components.diagnostics": ha_diag,
-        "homeassistant.components.select": ha_select,
         "homeassistant.components.sensor": ha_sensor,
         "homeassistant.components.water_heater": ha_wh,
     }.items():

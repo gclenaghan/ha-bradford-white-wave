@@ -12,6 +12,7 @@ from bradford_white_wave_client import (
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import CONF_REFRESH_TOKEN
@@ -24,7 +25,7 @@ from .coordinator import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SELECT, Platform.SENSOR, Platform.WATER_HEATER]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.WATER_HEATER]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BradfordWhiteConfigEntry) -> bool:
@@ -72,6 +73,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: BradfordWhiteConfigEntry
     await energy_coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = BradfordWhiteWaveData(client, status_coordinator, energy_coordinator)
+
+    # Clean up deprecated operation_mode select entities from 1.x installs
+    ent_reg = er.async_get(hass)
+    for entity_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if entity_entry.domain == Platform.SELECT:
+            ent_reg.async_remove(entity_entry.entity_id)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

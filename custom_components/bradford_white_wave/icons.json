@@ -1,17 +1,5 @@
 {
     "entity": {
-        "select": {
-            "operation_mode": {
-                "default": "mdi:water-boiler",
-                "state": {
-                    "hybrid": "mdi:heat-pump-outline",
-                    "hybrid_plus": "mdi:fire-circle",
-                    "heat_pump": "mdi:heat-pump",
-                    "electric": "mdi:lightning-bolt",
-                    "vacation": "mdi:beach"
-                }
-            }
-        },
         "sensor": {
             "weekly_total_energy": {
                 "default": "mdi:lightning-bolt"

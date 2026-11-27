@@ -8,7 +8,6 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 
 - Control Operation Mode (Hybrid, Hybrid Plus, Heat Pump, Electric, Vacation)
 - Control Setpoint Temperature (100–140 °F)
-- Dedicated Select entity exposing native Bradford White Operation Modes
 - Energy Usage Sensors (Total, Heat Pump, Element) broken down by:
   - Weekly
   - Monthly
@@ -43,12 +42,16 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 
 ### Water Heater
 
-- `water_heater.<device_name>`: Standard Home Assistant water heater controls for mode (`eco`, `high_demand`, `heat_pump`, `electric`, `off`) and target temperature.
+- `water_heater.<device_name>`: Standard Home Assistant water heater controls for operation mode and target temperature.
   - **Note**: The API does _not_ report the current tank temperature, so the entity will not show a current temperature value.
 
-### Select
-
-- `select.<device_name>_operation_mode`: Direct control and display of Bradford White's native operation mode names (`Hybrid`, `Hybrid Plus`, `Heat Pump`, `Electric`, `Vacation`).
+| Mode in Bradford White Wave App | Mode Displayed in Home Assistant | `water_heater.set_operation_mode` Value |
+| :--- | :--- | :--- |
+| **Hybrid** | Eco | `eco` |
+| **Hybrid Plus** | High demand | `high_demand` |
+| **Heat Pump** | Heat pump | `heat_pump` |
+| **Electric** | Electric | `electric` |
+| **Vacation** | Off | `off` |
 
 ### Sensors
 

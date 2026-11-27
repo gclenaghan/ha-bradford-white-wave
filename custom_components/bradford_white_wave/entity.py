@@ -49,7 +49,7 @@ class BradfordWhiteWaveBaseEntity[CoordinatorT: DataUpdateCoordinator](
 class BradfordWhiteWaveStatusEntity(
     BradfordWhiteWaveBaseEntity[BradfordWhiteWaveStatusCoordinator]
 ):
-    """Base entity for status-backed platforms (water heater, select)."""
+    """Base entity for status-backed platforms."""
 
     def __init__(
         self,

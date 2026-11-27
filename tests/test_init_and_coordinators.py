@@ -14,6 +14,7 @@ from bradford_white_wave_client import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.bradford_white_wave import (
     PLATFORMS,
@@ -39,6 +40,18 @@ async def test_setup_entry_populates_runtime_data_and_persists_rotated_tokens(
     hass.config_entries.async_forward_entry_setups = AsyncMock()
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
+    ent_reg = er.async_get(hass)
+    ent_reg.entries["select.home_operation_mode"] = er.RegistryEntry(
+        entity_id="select.home_operation_mode",
+        domain=Platform.SELECT,
+        config_entry_id="entry-1",
+    )
+    ent_reg.entries["water_heater.home"] = er.RegistryEntry(
+        entity_id="water_heater.home",
+        domain=Platform.WATER_HEATER,
+        config_entry_id="entry-1",
+    )
+
     entry = ConfigEntry(
         entry_id="entry-1",
         data={"email": "u@example.com", "password": "pw", "refresh_token": "rt-old"},
@@ -58,7 +71,9 @@ async def test_setup_entry_populates_runtime_data_and_persists_rotated_tokens(
         ok = await async_setup_entry(hass, entry)
 
     assert ok is True
-    assert PLATFORMS == [Platform.SELECT, Platform.SENSOR, Platform.WATER_HEATER]
+    assert PLATFORMS == [Platform.SENSOR, Platform.WATER_HEATER]
+    assert ent_reg.removed == ["select.home_operation_mode"]
+    assert "water_heater.home" in ent_reg.entries
     assert entry.runtime_data is not None
     assert entry.runtime_data.client is mock_client
 
