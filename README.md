@@ -21,10 +21,9 @@ Older models use the "Connect" platform and are supported by the [bradford-white
 ### Marketplace / HACS (Recommended)
 
 1. Open **Settings -> Marketplace** (or **HACS**).
-2. Click the three dots in the top right and select **Custom repositories**.
-3. Add `https://github.com/gclenaghan/ha-bradford-white-wave` with category **Integration**, then click **Add**.
-4. Find **Bradford White Wave** and click **Download** / **Install**.
-5. Restart Home Assistant.
+2. Search for **Bradford White Wave**.
+3. Click **Download** / **Install**.
+4. Restart Home Assistant.
 
 ### Manual
 
